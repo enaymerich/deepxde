@@ -76,14 +76,14 @@ class Hypercube(Geometry):
             )
         return x
 
-    def random_points(self, n, random="pseudo"):
-        x = sample(n, self.dim, random)
+    def random_points(self, n, random="pseudo", seed=None):
+        x = sample(n, self.dim, random, seed)
         return (self.xmax - self.xmin) * x + self.xmin
 
-    def random_boundary_points(self, n, random="pseudo"):
+    def random_boundary_points(self, n, random="pseudo", seed=None):
         x = sample(n, self.dim, random)
         # Randomly pick a dimension
-        rng = np.random.default_rng()
+        rng = np.random.default_rng(seed)
         rand_dim = rng.integers(self.dim, size=n)
         # Replace value of the randomly picked dimension with the nearest boundary value (0 or 1)
         x[np.arange(n), rand_dim] = np.round(x[np.arange(n), rand_dim])
@@ -132,7 +132,7 @@ class Hypersphere(Geometry):
         _n = _n / l * np.isclose(l, self.radius)
         return _n
 
-    def random_points(self, n, random="pseudo"):
+    def random_points(self, n, random="pseudo", seed=None):
         """https://math.stackexchange.com/questions/87230/picking-random-points-in-the-volume-of-sphere-with-uniform-probability"""
         if random == "pseudo":
             U = np.random.rand(n, 1)

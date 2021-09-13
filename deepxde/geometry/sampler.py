@@ -10,7 +10,7 @@ import skopt
 from .. import config
 
 
-def sample(n_samples, dimension, sampler="pseudo"):
+def sample(n_samples, dimension, sampler="pseudo", seed=None):
     """Generate random or quasirandom samples in [0, 1]^dimension.
 
     Args:
@@ -21,15 +21,15 @@ def sample(n_samples, dimension, sampler="pseudo"):
             sequence), or "Sobol" (Sobol sequence).
     """
     if sampler == "pseudo":
-        return pseudo(n_samples, dimension)
+        return pseudo(n_samples, dimension, seed)
     if sampler in ["LHS", "Halton", "Hammersley", "Sobol"]:
         return quasirandom(n_samples, dimension, sampler)
     raise ValueError("f{sampler} sampler is not available.")
 
 
-def pseudo(n_samples, dimension):
+def pseudo(n_samples, dimension, seed=None):
     """Pseudo random."""
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(seed)
     return rng.random(size=(n_samples, dimension), dtype=config.real(np))
 
 

@@ -122,11 +122,11 @@ class Rectangle(Hypercube):
             )
         return x
 
-    def random_boundary_points(self, n, random="pseudo"):
+    def random_boundary_points(self, n, random="pseudo", seed=None):
         l1 = self.xmax[0] - self.xmin[0]
         l2 = l1 + self.xmax[1] - self.xmin[1]
         l3 = l2 + l1
-        u = np.ravel(sample(n + 2, 1, random))
+        u = np.ravel(sample(n + 2, 1, random, seed))
         # Remove the possible points very close to the corners
         u = u[np.logical_not(np.isclose(u, l1 / self.perimeter))]
         u = u[np.logical_not(np.isclose(u, l3 / self.perimeter))]

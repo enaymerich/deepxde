@@ -86,11 +86,12 @@ class PDE(Data):
         solution=None,
         num_test=None,
         auxiliary_var_function=None,
+        seed=None,
     ):
         self.geom = geometry
         self.pde = pde
         self.bcs = bcs if isinstance(bcs, (list, tuple)) else [bcs]
-
+        self.seed = seed
         self.num_domain = num_domain
         self.num_boundary = num_boundary
         if train_distribution not in [
@@ -214,14 +215,14 @@ class PDE(Data):
                 X = self.geom.uniform_points(self.num_domain, boundary=False)
             else:
                 X = self.geom.random_points(
-                    self.num_domain, random=self.train_distribution
+                    self.num_domain, random=self.train_distribution, seed=self.seed
                 )
         if self.num_boundary > 0:
             if self.train_distribution == "uniform":
                 tmp = self.geom.uniform_boundary_points(self.num_boundary)
             else:
                 tmp = self.geom.random_boundary_points(
-                    self.num_boundary, random=self.train_distribution
+                    self.num_boundary, random=self.train_distribution, seed=self.seed
                 )
             X = np.vstack((tmp, X))
         if self.anchors is not None:
@@ -274,6 +275,7 @@ class TimePDE(PDE):
         solution=None,
         num_test=None,
         auxiliary_var_function=None,
+        seed=None
     ):
         self.num_initial = num_initial
         super(TimePDE, self).__init__(
@@ -288,6 +290,7 @@ class TimePDE(PDE):
             solution=solution,
             num_test=num_test,
             auxiliary_var_function=auxiliary_var_function,
+            seed=seed
         )
 
     def train_points(self):
@@ -297,7 +300,7 @@ class TimePDE(PDE):
                 tmp = self.geom.uniform_initial_points(self.num_initial)
             else:
                 tmp = self.geom.random_initial_points(
-                    self.num_initial, random=self.train_distribution
+                    self.num_initial, random=self.train_distribution, seed=self.seed
                 )
             if self.exclusions is not None:
 

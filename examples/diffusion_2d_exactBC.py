@@ -4,13 +4,15 @@ import numpy as np
 import random
 # Backend pytorch
 import torch
+import matplotlib.pyplot as plt
+
 
 ##Fix seed
 torch.manual_seed(123)
 torch.cuda.manual_seed(123)
-np.random.seed(123)
-random.seed(123)
-torch.backends.cudnn.enabled=False
+np.random.seed(125)
+random.seed(125)
+torch.backends.cudnn.enabled= False
 torch.backends.cudnn.deterministic=True
 torch.backends.cudnn.benchmark = False
 # size of the tile
@@ -18,10 +20,10 @@ height = 1
 width = 1
 mu = width/2
 sigma = 1e-1
-C = 2#dde.Variable(2.0)
+C = 1#dde.Variable(2.0)
 decay_steps = 1e3
 decay_rate = 1e-4
-
+Time_size = 1e-1#height*width/C
 
 ##check derivatives
 def pde(x, y):
@@ -29,12 +31,7 @@ def pde(x, y):
     dy_xx = dde.grad.hessian(y, x, i=0, j=0)
     dy_yy = dde.grad.hessian(y, x, i=1, j=1)
     # Backend pytorch
-    return (
-         dy_t
-         - C * (dy_xx+dy_yy)
-         + torch.exp(-x[:, 1:])
-         * (torch.sin(np.pi * x[:, 0:1]) - np.pi ** 2 * torch.sin(np.pi * x[:, 0:1]))
-     )
+    return (dy_t - C * (dy_xx+dy_yy))
 
 
 def boundary_x(x, on_boundary):
@@ -52,38 +49,59 @@ def func_x(x):
 def func_y(x):
     return x[:, 1:2]*0
 
+
 def func_IC(x):
     return x[:, 1:2]*0
 
 
+def show_train_points(data):
+    train_points = data.train_points()
+    bc_points = data.bc_points()
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111, projection='3d')
+    SC1 = ax1.scatter(train_points[:, 2], train_points[:, 0], train_points[:, 1])
+    ax1.set_xlabel('x')
+    ax1.set_ylabel('y')
+    ax1.set_zlabel('t')
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111, projection='3d')
+    bc_vals = [func_x(bc_points[i:i+1,:]) if bc_points[i,0]==0 else 0 for i in range(len(bc_points))]
+    SC2 = ax2.scatter(bc_points[:,2], bc_points[:,0], bc_points[:,1],c=bc_vals)
+    ax2.set_xlabel('t')
+    ax2.set_ylabel('x')
+    ax2.set_zlabel('y')
+    plt.colorbar(SC2)
+    plt.show()
+    return
+
 ## mesh geometry
 geom = dde.geometry.Rectangle([0, 0], [height,width])
 ## time space
-timedomain = dde.geometry.TimeDomain(0, 1)
+timedomain = dde.geometry.TimeDomain(0, Time_size)
 geomtime = dde.geometry.GeometryXTime(geom, timedomain)
 
 #bc1 = dde.DirichletBC(geomtime, func, lambda _, on_boundary: )
 bc_x = dde.DirichletBC(geomtime, func_x, boundary_x, component=0)
 bc_y = dde.NeumannBC(geomtime, func_y, boundary_y, component=0)
-#bc = dde.DirichletBC(geomtime, func, lambda _, on_boundary: on_boundary, component=1)
-#bc_rad = dde.DirichletBC(
-#    geom,
-#    lambda x: np.cos(x[:, 1:2]),
-#    lambda x, on_boundary: on_boundary and np.isclose(x[0], 1),
+
 #)
 ic = dde.IC(geomtime, func_IC, lambda _, on_initial: on_initial)
 
-observe_x = np.vstack((np.linspace(0, height, num=10), (np.linspace(0, width, num=10)), np.full((10), 1))).T
 
 data = dde.data.TimePDE(
     geomtime,
     pde,
-    [bc_x,bc_y, ic],
-    num_domain=40,
+    [bc_x, bc_y, ic],
+    num_domain=20,
     num_boundary=20,
-    num_initial=10,
+    num_initial=20,
     num_test=10000,
+    train_distribution="pseudo",
+    seed=None,
 )
+#show_train_points(data)
+print(data.bc_points())
+print(data.train_points())
 
 layer_size = [3] + [32] * 3 + [1]
 activation = "tanh"
@@ -93,6 +111,8 @@ net = dde.maps.FNN(layer_size, activation, initializer)
 model = dde.Model(data, net)
 ##add theodor for test metric?
 model.compile("adam", lr=0.001,loss='MSE')
-losshistory, train_state = model.train(epochs=10000)
+losshistory, train_state = model.train(epochs=10000)#model_save_path='prova')
 
+####SHOW OUTPUT: model.net()
 dde.saveplot(losshistory, train_state, issave=True, isplot=True)
+#dde.save_best_state(train_state, 'deepxde_train.txt', 'deepxde_test.txt')
