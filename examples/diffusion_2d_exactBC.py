@@ -23,9 +23,17 @@ sigma = 1e-1
 C = 1#dde.Variable(2.0)
 decay_steps = 1e3
 decay_rate = 1e-4
-Time_size = 1e-1#height*width/C
+Time_size = 1#height*width/C
 
-##check derivatives
+ND = 10000
+Nx = int(ND**(1/4))
+Ny = Nx
+Nt = Nx*Ny
+Nsx = Nx*Nt
+Nsy = Ny*Nt
+Nst = Nx*Ny
+
+
 def pde(x, y):
     dy_t = dde.grad.jacobian(y, x, i=0, j=2)
     dy_xx = dde.grad.hessian(y, x, i=0, j=0)
@@ -92,16 +100,15 @@ data = dde.data.TimePDE(
     geomtime,
     pde,
     [bc_x, bc_y, ic],
-    num_domain=20,
-    num_boundary=20,
-    num_initial=20,
+    num_domain=ND,  #ND
+    num_boundary=Nsx+Nsy, #Nx+Ny
+    num_initial=Nst,  #Nt
     num_test=10000,
     train_distribution="pseudo",
-    seed=None,
+    seed=123,
 )
 #show_train_points(data)
-print(data.bc_points())
-print(data.train_points())
+
 
 layer_size = [3] + [32] * 3 + [1]
 activation = "tanh"
@@ -109,10 +116,10 @@ initializer = "Glorot uniform"
 net = dde.maps.FNN(layer_size, activation, initializer)
 
 model = dde.Model(data, net)
-##add theodor for test metric?
-model.compile("adam", lr=0.001,loss='MSE')
-losshistory, train_state = model.train(epochs=10000)#model_save_path='prova')
 
-####SHOW OUTPUT: model.net()
+model.compile("adam", lr=0.001,loss='MSE')
+resampler = dde.callbacks.PDEResidualResampler(period=1)
+losshistory, train_state = model.train(epochs=100000, display_every=250,
+                                       model_save_path='theo_deepxde.pt', callbacks=[resampler])
+
 dde.saveplot(losshistory, train_state, issave=True, isplot=True)
-#dde.save_best_state(train_state, 'deepxde_train.txt', 'deepxde_test.txt')
