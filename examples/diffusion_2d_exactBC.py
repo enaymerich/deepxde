@@ -118,8 +118,8 @@ net = dde.maps.FNN(layer_size, activation, initializer)
 model = dde.Model(data, net)
 
 model.compile("adam", lr=0.001,loss='MSE')
-resampler = dde.callbacks.PDEResidualResampler(period=1)
-losshistory, train_state = model.train(epochs=100000, display_every=250,
+resampler = dde.callbacks.PDEResidualResampler(period=500)
+losshistory, train_state = model.train(epochs=200000, display_every=250,
                                        model_save_path='theo_deepxde.pt', callbacks=[resampler])
 
 dde.saveplot(losshistory, train_state, issave=True, isplot=True)

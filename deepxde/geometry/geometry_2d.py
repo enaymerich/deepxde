@@ -85,7 +85,7 @@ class Rectangle(Hypercube):
         self.perimeter = 2 * np.sum(self.xmax - self.xmin)
         self.area = np.prod(self.xmax - self.xmin)
 
-    def uniform_boundary_points(self, n):
+    def uniform_boundary_points(self, n, seed=None):
         nx, ny = np.ceil(n / self.perimeter * (self.xmax - self.xmin)).astype(int)
         xbot = np.hstack(
             (
@@ -116,11 +116,16 @@ class Rectangle(Hypercube):
             )
         )
         x = np.vstack((xbot, yrig, xtop, ylef))
-        if n != len(x):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(x))
-            )
-        return x
+
+        extra_points = abs(len(x) - n)
+        if n < len(x):
+            rng = np.random.default_rng(seed)
+            x = np.delete(x, rng.choice(len(x), size=extra_points, replace=False), axis=0)
+        elif n > len(x):
+            y = self.uniform_boundary_points(self, extra_points, seed=seed)
+            x = np.vstack((x, y))
+
+        return x.astype(config.real(np))
 
     def random_boundary_points(self, n, random="pseudo", seed=None):
         l1 = self.xmax[0] - self.xmin[0]
@@ -265,7 +270,7 @@ class Triangle(Geometry):
             + r2 * sqrt_r1 * self.x3
         )
 
-    def uniform_boundary_points(self, n):
+    def uniform_boundary_points(self, n, seed=None):
         density = n / self.perimeter
         x12 = (
             np.linspace(0, 1, num=int(np.ceil(density * self.l12)), endpoint=False)[
@@ -289,11 +294,16 @@ class Triangle(Geometry):
             + self.x3
         )
         x = np.vstack((x12, x23, x31))
-        if n != len(x):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(x))
-            )
-        return x
+
+        extra_points = abs(len(x) - n)
+        if n < len(x):
+            rng = np.random.default_rng(seed)
+            x = np.delete(x, rng.choice(len(x), size=extra_points, replace=False), axis=0)
+        elif n > len(x):
+            y = self.uniform_boundary_points(self, extra_points, seed=seed)
+            x = np.vstack((x, y))
+
+        return x.astype(config.real(np))
 
     def random_boundary_points(self, n, random="pseudo"):
         u = np.ravel(sample(n + 2, 1, random))
@@ -423,7 +433,7 @@ class Polygon(Geometry):
             x = np.vstack((x, x_new[self.inside(x_new)]))
         return x[:n]
 
-    def uniform_boundary_points(self, n):
+    def uniform_boundary_points(self, n, seed=None):
         density = n / self.perimeter
         x = []
         for i in range(-1, self.nvertices - 1):
@@ -438,11 +448,15 @@ class Polygon(Geometry):
                 + self.vertices[i]
             )
         x = np.vstack(x)
-        if n != len(x):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(x))
-            )
-        return x
+        extra_points = abs(len(x) - n)
+        if n < len(x):
+            rng = np.random.default_rng(seed)
+            x = np.delete(x, rng.choice(len(x), size=extra_points, replace=False), axis=0)
+        elif n > len(x):
+            y = self.uniform_boundary_points(self, extra_points, seed=seed)
+            x = np.vstack((x, y))
+
+        return x.astype(config.real(np))
 
     def random_boundary_points(self, n, random="pseudo"):
         u = np.ravel(sample(n + self.nvertices, 1, random))

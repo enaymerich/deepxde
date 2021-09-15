@@ -69,12 +69,15 @@ class Hypercube(Geometry):
                     ]
                 )
         ###edit: added dtype (error in pytorch)
-        x = np.array(list(itertools.product(*xi)), dtype=config.real(np))
-        if n != len(x):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(x))
-            )
-        return x
+        x = np.array(list(itertools.product(*xi)))
+        extra_points = abs(len(x) - n)
+        if n < len(x):
+            x = np.delete(x, np.random.randint(0, len(x), size=extra_points), axis=0)
+        elif n > len(x):
+            y = self.uniform_boundary_points(self, extra_points)
+            x = np.vstack((x, y))
+
+        return x.astype(config.real(np))
 
     def random_points(self, n, random="pseudo", seed=None):
         x = sample(n, self.dim, random, seed)

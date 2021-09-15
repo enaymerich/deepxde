@@ -165,7 +165,8 @@ class PDE(Data):
         self.train_x_all = self.train_points()
         self.train_x = self.bc_points()
         if self.pde is not None:
-            self.train_x = np.vstack((self.train_x, self.train_x_all))
+            #self.train_x = np.vstack((self.train_x, self.train_x_all))
+            self.train_x = self.train_x_all
         self.train_y = self.soln(self.train_x) if self.soln else None
         if self.auxiliary_var_fn is not None:
             self.train_aux_vars = self.auxiliary_var_fn(self.train_x).astype(
@@ -189,6 +190,7 @@ class PDE(Data):
     def resample_train_points(self):
         """Resample the training points for PDEs. The BC points will not be updated."""
         self.train_x, self.train_y, self.train_aux_vars = None, None, None
+        self.train_x_bc = None, None, None
         self.train_next_batch()
 
     def add_anchors(self, anchors):
@@ -219,7 +221,7 @@ class PDE(Data):
                 )
         if self.num_boundary > 0:
             if self.train_distribution == "uniform":
-                tmp = self.geom.uniform_boundary_points(self.num_boundary)
+                tmp = self.geom.uniform_boundary_points(self.num_boundary, seed=self.seed)
             else:
                 tmp = self.geom.random_boundary_points(
                     self.num_boundary, random=self.train_distribution, seed=self.seed
@@ -249,7 +251,9 @@ class PDE(Data):
     def test_points(self):
         # TODO: Use different BC points from self.train_x_bc
         x = self.geom.uniform_points(self.num_test, boundary=False)
-        x = np.vstack((self.train_x_bc, x))
+        if self.num_boundary > 0:
+            tmp = self.geom.uniform_boundary_points(self.num_boundary)
+            x = np.vstack((tmp, x))
         return x
 
 
@@ -297,7 +301,7 @@ class TimePDE(PDE):
         X = super(TimePDE, self).train_points()
         if self.num_initial > 0:
             if self.train_distribution == "uniform":
-                tmp = self.geom.uniform_initial_points(self.num_initial)
+                tmp = self.geom.uniform_initial_points(self.num_initial, seed=self.seed)
             else:
                 tmp = self.geom.random_initial_points(
                     self.num_initial, random=self.train_distribution, seed=self.seed

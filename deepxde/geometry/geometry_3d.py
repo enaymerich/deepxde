@@ -42,7 +42,7 @@ class Cuboid(Hypercube):
             return pts[np.random.choice(len(pts), size=n, replace=False)]
         return pts
 
-    def uniform_boundary_points(self, n):
+    def uniform_boundary_points(self, n, seed=None):
         h = (self.area / n) ** 0.5
         nx, ny, nz = np.ceil((self.xmax - self.xmin) / h).astype(int) + 1
         x = np.linspace(self.xmin[0], self.xmax[0], num=nx)
@@ -62,6 +62,16 @@ class Cuboid(Hypercube):
                 u = list(itertools.product(y[1:-1], z[1:-1]))
                 pts.append(np.hstack((np.full((len(u), 1), v), u)))
         pts = np.vstack(pts)
+
+        extra_points = abs(len(x) - n)
+        if n < len(pts):
+            rng = np.random.default_rng(seed)
+            pts = np.delete(pts, rng.choice(len(pts), size=extra_points, replace=False), axis=0)
+        elif n > len(x):
+            y = self.uniform_boundary_points(self, extra_points, seed=seed)
+            pts = np.vstack((x, y))
+
+        return x.astype(config.real(np))
         if n != len(pts):
             print(
                 "Warning: {} points required, but {} points sampled.".format(

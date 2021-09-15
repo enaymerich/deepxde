@@ -403,6 +403,8 @@ class Model(object):
             self.train_state.step += 1
             if self.train_state.step % display_every == 0 or i + 1 == epochs:
                 self._test()
+            if self.data.seed is not None:
+                self.data.seed = self.data.seed+1
 
             self.callbacks.on_batch_end()
             self.callbacks.on_epoch_end()
