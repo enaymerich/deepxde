@@ -165,8 +165,8 @@ class PDE(Data):
         self.train_x_all = self.train_points()
         self.train_x = self.bc_points()
         if self.pde is not None:
-            #self.train_x = np.vstack((self.train_x, self.train_x_all))
-            self.train_x = self.train_x_all
+            self.train_x = np.vstack((self.train_x, self.train_x_all))
+            #self.train_x = self.train_x_all
         self.train_y = self.soln(self.train_x) if self.soln else None
         if self.auxiliary_var_fn is not None:
             self.train_aux_vars = self.auxiliary_var_fn(self.train_x).astype(
@@ -190,7 +190,7 @@ class PDE(Data):
     def resample_train_points(self):
         """Resample the training points for PDEs. The BC points will not be updated."""
         self.train_x, self.train_y, self.train_aux_vars = None, None, None
-        self.train_x_bc = None, None, None
+        self.train_x_bc = None
         self.train_next_batch()
 
     def add_anchors(self, anchors):
@@ -251,9 +251,14 @@ class PDE(Data):
     def test_points(self):
         # TODO: Use different BC points from self.train_x_bc
         x = self.geom.uniform_points(self.num_test, boundary=False)
-        if self.num_boundary > 0:
-            tmp = self.geom.uniform_boundary_points(self.num_boundary)
-            x = np.vstack((tmp, x))
+        x = np.vstack((self.train_x, x))
+        #if self.num_boundary > 0:
+        #    tmp = self.geom.uniform_boundary_points(self.num_boundary)
+        #    tmp = self.test_bc_points(tmp)
+        #    x = np.vstack((tmp, x))
+        #if self.num_initial > 0:
+        #    tmp = self.geom.uniform_initial_points(self.num_initial, seed=self.seed)
+        #    x = np.vstack((tmp, x))
         return x
 
 

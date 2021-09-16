@@ -8,10 +8,11 @@ import matplotlib.pyplot as plt
 
 
 ##Fix seed
-torch.manual_seed(123)
-torch.cuda.manual_seed(123)
-np.random.seed(125)
-random.seed(125)
+seed = 155
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+np.random.seed(seed)
+random.seed(seed)
 torch.backends.cudnn.enabled= False
 torch.backends.cudnn.deterministic=True
 torch.backends.cudnn.benchmark = False
@@ -25,13 +26,23 @@ decay_steps = 1e3
 decay_rate = 1e-4
 Time_size = 1#height*width/C
 
+## Domain par
 ND = 10000
 Nx = int(ND**(1/4))
 Ny = Nx
 Nt = Nx*Ny
 Nsx = Nx*Nt
 Nsy = Ny*Nt
-Nst = Nx*Ny
+Nst = Nx*Ny*2
+num_test = 5000
+## Network parameters
+lr = 5e-5
+loss = 'MSE'
+optim = "adam"
+## weights
+weights = [1,10,1,1]
+weights = np.ndarray.tolist(np.exp(weights)/sum(np.exp(weights)))
+weights = [1, 1, 1, 1]
 
 
 def pde(x, y):
@@ -39,7 +50,7 @@ def pde(x, y):
     dy_xx = dde.grad.hessian(y, x, i=0, j=0)
     dy_yy = dde.grad.hessian(y, x, i=1, j=1)
     # Backend pytorch
-    return (dy_t - C * (dy_xx+dy_yy))
+    return dy_t - C * (dy_xx+dy_yy)#((dy_t.squeeze() - C * (dy_xx+dy_yy).squeeze())* torch.exp(-x[:,2])).unsqueeze(1)
 
 
 def boundary_x(x, on_boundary):
@@ -47,7 +58,7 @@ def boundary_x(x, on_boundary):
 
 
 def boundary_y(x, on_boundary):
-    return (on_boundary & np.isclose(x[1], 0)) or (on_boundary & np.isclose(x[1], 1))
+    return (on_boundary & np.isclose(x[1], 0)) or (on_boundary & np.isclose(x[1], width))
 
 
 def func_x(x):
@@ -89,8 +100,8 @@ timedomain = dde.geometry.TimeDomain(0, Time_size)
 geomtime = dde.geometry.GeometryXTime(geom, timedomain)
 
 #bc1 = dde.DirichletBC(geomtime, func, lambda _, on_boundary: )
-bc_x = dde.DirichletBC(geomtime, func_x, boundary_x, component=0)
-bc_y = dde.NeumannBC(geomtime, func_y, boundary_y, component=0)
+bc_x = dde.DirichletBC(geomtime, func_x, boundary_x, component=0, num_points=Nsx)
+bc_y = dde.NeumannBC(geomtime, func_y, boundary_y, component=0, num_points=Nsy*2)
 
 #)
 ic = dde.IC(geomtime, func_IC, lambda _, on_initial: on_initial)
@@ -101,25 +112,24 @@ data = dde.data.TimePDE(
     pde,
     [bc_x, bc_y, ic],
     num_domain=ND,  #ND
-    num_boundary=Nsx+Nsy, #Nx+Ny
+    num_boundary=ND, #Nx+Ny
     num_initial=Nst,  #Nt
-    num_test=10000,
+    num_test=num_test,
     train_distribution="pseudo",
-    seed=123,
+    seed=seed,
 )
 #show_train_points(data)
 
-
-layer_size = [3] + [32] * 3 + [1]
+layer_size = [3] + [50] * 2 + [1]
 activation = "tanh"
 initializer = "Glorot uniform"
 net = dde.maps.FNN(layer_size, activation, initializer)
 
 model = dde.Model(data, net)
 
-model.compile("adam", lr=0.001,loss='MSE')
-resampler = dde.callbacks.PDEResidualResampler(period=500)
-losshistory, train_state = model.train(epochs=200000, display_every=250,
+model.compile(optim, lr=lr, loss=loss, loss_weights=weights)
+resampler = dde.callbacks.PDEResidualResampler(period=1000)
+losshistory, train_state = model.train(epochs=100000, display_every=250,
                                        model_save_path='theo_deepxde.pt', callbacks=[resampler])
 
 dde.saveplot(losshistory, train_state, issave=True, isplot=True)

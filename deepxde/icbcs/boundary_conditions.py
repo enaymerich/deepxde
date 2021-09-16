@@ -36,12 +36,13 @@ class BC(ABC):
         component: The output component satisfying this BC.
     """
 
-    def __init__(self, geom, on_boundary, component):
+    def __init__(self, geom, on_boundary, component, num_points=10):
         self.geom = geom
         self.on_boundary = lambda x, on: np.array(
             [on_boundary(x[i], on[i]) for i in range(len(x))]
         )
         self.component = component
+        self.points = num_points
 
         self.boundary_normal = npfunc_range_autocache(
             utils.return_tensor(self.geom.boundary_normal)
@@ -51,6 +52,14 @@ class BC(ABC):
         return X[self.on_boundary(X, self.geom.on_boundary(X))]
 
     def collocation_points(self, X):
+        X = self.filter(X)
+        if len(X) > self.points:
+            X = X[0:self.points]
+        elif len(X) < self.points:
+            print(
+                "Warning: {} points required, but {} points sampled. ".format(self.points, len(X)) +
+                "This may cause error if resampling"
+            )
         return self.filter(X)
 
     def normal_derivative(self, X, inputs, outputs, beg, end):
@@ -66,8 +75,8 @@ class BC(ABC):
 class DirichletBC(BC):
     """Dirichlet boundary conditions: y(x) = func(x)."""
 
-    def __init__(self, geom, func, on_boundary, component=0):
-        super(DirichletBC, self).__init__(geom, on_boundary, component)
+    def __init__(self, geom, func, on_boundary, component=0, num_points=10):
+        super(DirichletBC, self).__init__(geom, on_boundary, component, num_points)
         self.func = npfunc_range_autocache(utils.return_tensor(func))
 
     def error(self, X, inputs, outputs, beg, end):
@@ -83,8 +92,8 @@ class DirichletBC(BC):
 class NeumannBC(BC):
     """Neumann boundary conditions: dy/dn(x) = func(x)."""
 
-    def __init__(self, geom, func, on_boundary, component=0):
-        super(NeumannBC, self).__init__(geom, on_boundary, component)
+    def __init__(self, geom, func, on_boundary, component=0, num_points=10):
+        super(NeumannBC, self).__init__(geom, on_boundary, component, num_points)
         self.func = npfunc_range_autocache(utils.return_tensor(func))
 
     def error(self, X, inputs, outputs, beg, end):
@@ -95,8 +104,8 @@ class NeumannBC(BC):
 class RobinBC(BC):
     """Robin boundary conditions: dy/dn(x) = func(x, y)."""
 
-    def __init__(self, geom, func, on_boundary, component=0):
-        super(RobinBC, self).__init__(geom, on_boundary, component)
+    def __init__(self, geom, func, on_boundary, component=0, num_points=10):
+        super(RobinBC, self).__init__(geom, on_boundary, component, num_points)
         self.func = func
 
     def error(self, X, inputs, outputs, beg, end):
@@ -108,8 +117,8 @@ class RobinBC(BC):
 class PeriodicBC(BC):
     """Periodic boundary conditions on component_x."""
 
-    def __init__(self, geom, component_x, on_boundary, derivative_order=0, component=0):
-        super(PeriodicBC, self).__init__(geom, on_boundary, component)
+    def __init__(self, geom, component_x, on_boundary, derivative_order=0, component=0, num_points=10):
+        super(PeriodicBC, self).__init__(geom, on_boundary, component, num_points)
         self.component_x = component_x
         self.derivative_order = derivative_order
         if derivative_order > 1:
@@ -146,8 +155,8 @@ class OperatorBC(BC):
         on_boundary: (x, Geometry.on_boundary(x)) -> True/False.
     """
 
-    def __init__(self, geom, func, on_boundary):
-        super(OperatorBC, self).__init__(geom, on_boundary, 0)
+    def __init__(self, geom, func, on_boundary, num_points=10):
+        super(OperatorBC, self).__init__(geom, on_boundary, 0, num_points)
         self.func = func
 
     def error(self, X, inputs, outputs, beg, end):
