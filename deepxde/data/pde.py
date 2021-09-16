@@ -120,6 +120,7 @@ class PDE(Data):
         self.train_x_all = None
         self.train_x, self.train_y = None, None
         self.train_x_bc = None
+        self.test_x_bc = None
         self.num_bcs = None
         self.test_x, self.test_y = None, None
         self.train_aux_vars, self.test_aux_vars = None, None
@@ -127,7 +128,7 @@ class PDE(Data):
         self.train_next_batch()
         self.test()
 
-    def losses(self, targets, outputs, loss, model):
+    def losses(self, training, targets, outputs, loss, model):
         f = []
         if self.pde is not None:
             if get_num_args(self.pde) == 2:
@@ -156,7 +157,10 @@ class PDE(Data):
         for i, bc in enumerate(self.bcs):
             beg, end = bcs_start[i], bcs_start[i + 1]
             # The same BC points are used for training and testing.
-            error = bc.error(self.train_x, model.net.inputs, outputs, beg, end)
+            if training:
+                error = bc.error(self.train_x, model.net.inputs, outputs, beg, end)
+            else:
+                error = bc.error(self.test_x_bc, model.net.inputs, outputs, beg, end)
             losses.append(loss[len(error_f) + i](bkd.zeros_like(error), error))
         return losses
 
@@ -165,8 +169,8 @@ class PDE(Data):
         self.train_x_all = self.train_points()
         self.train_x = self.bc_points()
         if self.pde is not None:
-            #self.train_x = np.vstack((self.train_x, self.train_x_all))
-            self.train_x = self.train_x_all
+            self.train_x = np.vstack((self.train_x, self.train_x_all))
+            #self.train_x = self.train_x_all
         self.train_y = self.soln(self.train_x) if self.soln else None
         if self.auxiliary_var_fn is not None:
             self.train_aux_vars = self.auxiliary_var_fn(self.train_x).astype(
@@ -190,7 +194,7 @@ class PDE(Data):
     def resample_train_points(self):
         """Resample the training points for PDEs. The BC points will not be updated."""
         self.train_x, self.train_y, self.train_aux_vars = None, None, None
-        self.train_x_bc = None, None, None
+        self.train_x_bc = None
         self.train_next_batch()
 
     def add_anchors(self, anchors):
@@ -251,10 +255,27 @@ class PDE(Data):
     def test_points(self):
         # TODO: Use different BC points from self.train_x_bc
         x = self.geom.uniform_points(self.num_test, boundary=False)
+        if self.num_initial > 0:
+            tmp = self.geom.uniform_initial_points(self.num_initial, seed=self.seed)
+            tmp = np.vstack((tmp,x))
+        else:
+            tmp = np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
         if self.num_boundary > 0:
-            tmp = self.geom.uniform_boundary_points(self.num_boundary)
-            x = np.vstack((tmp, x))
-        return x
+            tmp_2 = self.geom.uniform_boundary_points(self.num_boundary)
+            tmp = np.vstack((tmp_2,tmp))
+        tmp = self.test_bc_points(tmp)
+
+        return np.vstack((tmp,x))
+
+    @run_if_all_none("test_x_bc")
+    def test_bc_points(self, pts):
+        x_bcs = [bc.collocation_points(pts) for bc in self.bcs]
+        self.test_x_bc = (
+            np.vstack(x_bcs)
+            if x_bcs
+            else np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
+        )
+        return self.test_x_bc
 
 
 class TimePDE(PDE):

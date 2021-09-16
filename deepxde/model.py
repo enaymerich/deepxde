@@ -231,7 +231,7 @@ class Model(object):
             # Data losses
             if targets is not None:
                 targets = torch.as_tensor(targets)
-            losses = self.data.losses(targets, outputs_, loss_fn, self)
+            losses = self.data.losses(training, targets, outputs_, loss_fn, self)
             if not isinstance(losses, list):
                 losses = [losses]
             # TODO: regularization
