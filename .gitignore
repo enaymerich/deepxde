@@ -4,3 +4,4 @@ __pycache__/
 
 # Sphinx documentation
 docs/_build/
+/examples/theo_deepxde_BC_weak_alpha075/

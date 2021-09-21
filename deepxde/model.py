@@ -42,15 +42,14 @@ class Model(object):
         self.losshistory = LossHistory()
         self.stop_training = False
 
+
         # Backend-dependent attributes
         self.opt = None
         # Tensor or callable
         self.outputs = None
         self.outputs_losses = None
         self.train_step = None
-        if backend_name == "tensorflow.compat.v1":
-            self.sess = None
-            self.saver = None
+
 
 
     @utils.timing
@@ -306,11 +305,15 @@ class Model(object):
         epochs=None,
         batch_size=None,
         display_every=1000,
+        save_every=1000,
         disregard_previous_best=False,
         callbacks=None,
         model_restore_path=None,
         model_save_path=None,
         protocol = None,
+        Tensorboard = False,
+        logname = None,
+        loss_names = None,
     ):
         """Trains the model for a fixed number of epochs (iterations on a dataset).
 
@@ -352,13 +355,23 @@ class Model(object):
                 utils.guarantee_initialized_variables(self.sess)
         if model_restore_path is not None:
             self.restore(model_restore_path, verbose=1)
+        self.train_state.save_path = model_save_path
         if (model_save_path is not None) and (protocol is None):
             if backend_name == "tensorflow.compat.v1":
-                protocol = "tf.train.Saver"
+                self.train_state.protocol = "tf.train.Saver"
             elif backend_name == "pytorch":
-                protocol = "torch.save"
-
-
+                self.train_state.protocol = "torch.save"
+        if Tensorboard:
+            if backend_name == "pytorch":
+                from torch.utils.tensorboard import SummaryWriter
+                if logname is not None:
+                    self.train_state.writer = SummaryWriter('runs/'+logname)
+                else:
+                    self.train_state.writer = SummaryWriter()
+                self.train_state.loss_names = loss_names
+        self.train_state.Tensorboard = Tensorboard
+        self.train_state.save_every=save_every
+        self.train_state.epochs=epochs
 
         print("Training model...\n")
         self.stop_training = False
@@ -381,8 +394,7 @@ class Model(object):
 
         print("")
         display.training_display.summary(self.train_state)
-        if (model_save_path is not None) and (protocol is not None):
-            self.save(model_save_path, protocol, verbose=1)
+
         return self.losshistory, self.train_state
 
     def _train_sgd(self, epochs, display_every):
@@ -504,6 +516,7 @@ class Model(object):
             self.train_state.y_train,
             self.train_state.train_aux_vars,
         )
+
         self.train_state.y_pred_test, self.train_state.loss_test = self._outputs_losses(
             False,
             self.train_state.X_test,
@@ -522,14 +535,23 @@ class Model(object):
                 m(self.train_state.y_test, self.train_state.y_pred_test)
                 for m in self.metrics
             ]
+        self.train_state.loss_train = self.train_state.loss_train/self.losshistory.loss_weights
+        self.train_state.loss_test = self.train_state.loss_test/self.losshistory.loss_weights
 
-        self.train_state.update_best()
+        self.train_state.update_best(self.net, self.opt)
         self.losshistory.append(
             self.train_state.step,
             self.train_state.loss_train,
             self.train_state.loss_test,
             self.train_state.metrics_test,
         )
+        if (self.train_state.Tensorboard is not None) and (self.train_state.loss_names is not None):
+            if backend_name == 'pytorch':
+                for k in range(len(self.train_state.loss_names)):
+                    self.train_state.writer.add_scalar(self.train_state.loss_names[k],
+                                                       self.train_state.loss_train[k], self.train_state.step)
+                self.train_state.writer.add_scalar('Total loss', sum(self.train_state.loss_train), self.train_state.step)
+
         display.training_display(self.train_state)
 
     def predict(self, x, operator=None, callbacks=None):
@@ -601,38 +623,6 @@ class Model(object):
             destination[k] = v
         return destination
 
-    def save(self, save_path, protocol="tf.train.Saver", verbose=0):
-        """Saves all variables to a disk file.
-
-        Args:
-            protocol (string): If `protocol` is "tf.train.Saver", save using
-                `tf.train.Save <https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/Saver#attributes>`_.
-                If `protocol` is "pickle", save using the Python pickle module. Only
-                "tf.train.Saver" protocol supports ``restore()``
-                Added pytorch backend (no pickle support)
-        """
-        # TODO: backend tensorflow
-        if backend_name == "tensorflow":
-            raise NotImplementedError(
-                "state_dict hasn't been implemented for this backend."
-            )
-        if verbose > 0:
-            print(
-                "Epoch {}: saving model to {}-{} ...\n".format(
-                    self.train_state.epoch, save_path, self.train_state.epoch
-                )
-            )
-        if protocol == "tf.train.Saver":
-            self.saver.save(self.sess, save_path, global_step=self.train_state.epoch)
-        elif protocol == "torch.save":
-            torch.save({
-                'epoch': self.train_state.epoch,
-                'model_state_dict': self.net.state_dict(),
-                'optimizer_state_dict': self.opt.state_dict(),
-            }, save_path)
-        elif protocol == "pickle":
-            with open("{}-{}.pkl".format(save_path, self.train_state.epoch), "wb") as f:
-                pickle.dump(self.state_dict(), f)
 
     def restore(self, save_path, verbose=0):
         """Restore all variables from a disk file."""
@@ -670,8 +660,9 @@ class Model(object):
             print(v)
 
 
-class TrainState(object):
+class TrainState(Model):
     def __init__(self):
+        self.epochs = None
         self.epoch = 0
         self.step = 0
 
@@ -701,6 +692,16 @@ class TrainState(object):
         self.best_ystd = None
         self.best_metrics = None
 
+        if backend_name == "tensorflow.compat.v1":
+            self.train_state.sess = None
+            self.train_state.saver = None
+        self.save_path = None
+        self.protocol = None
+        self.save_every = None
+        self.writer = None
+        self.Tensorboard = None
+        self.loss_names = None
+
     def set_data_train(self, X_train, y_train, train_aux_vars=None):
         self.X_train = X_train
         self.y_train = y_train
@@ -711,7 +712,7 @@ class TrainState(object):
         self.y_test = y_test
         self.test_aux_vars = test_aux_vars
 
-    def update_best(self):
+    def update_best(self, net, opt):
         if self.best_loss_train > np.sum(self.loss_train):
             self.best_step = self.step
             self.best_loss_train = np.sum(self.loss_train)
@@ -719,6 +720,43 @@ class TrainState(object):
             self.best_y = self.y_pred_test
             self.best_ystd = self.y_std_test
             self.best_metrics = self.metrics_test
+            if (self.save_path is not None) and (self.protocol is not None):
+                if (self.step % self.save_every == 0) or (self.epoch + 1 == self.epochs):
+                    self.save(net, opt, verbose=1)
+
+    def save(self, net, opt, verbose=0):
+        """Saves all variables to a disk file.
+
+        Args:
+            protocol (string): If `protocol` is "tf.train.Saver", save using
+                `tf.train.Save <https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/Saver#attributes>`_.
+                If `protocol` is "pickle", save using the Python pickle module. Only
+                "tf.train.Saver" protocol supports ``restore()``
+                Added pytorch backend (no pickle support)
+        """
+        # TODO: backend tensorflow
+        if backend_name == "tensorflow":
+            raise NotImplementedError(
+                "state_dict hasn't been implemented for this backend."
+            )
+        if verbose > 0:
+            print(
+                "Epoch {}: saving model to {}-{} ...\n".format(
+                    self.epoch, self.save_path, self.epoch
+                )
+            )
+        if self.protocol == "tf.train.Saver":
+            self.saver.save(self.sess, self.save_path, global_step=self.epoch)
+        elif self.protocol == "torch.save":
+            torch.save({
+                'epoch': self.epoch,
+                'model_state_dict': net.state_dict(),
+                'optimizer_state_dict': opt.state_dict(),
+            }, self.save_path)
+        #elif self.protocol == "pickle":
+        #    with open("{}-{}.pkl".format(self.save_path, self.train_state.epoch), "wb") as f:
+        #        pickle.dump(self.state_dict(), f)
+
 
     def disregard_best(self):
         self.best_loss_train = np.inf
