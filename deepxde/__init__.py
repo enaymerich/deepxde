@@ -24,7 +24,7 @@ from .icbcs import (
     IC,
 )
 from .model import Model
-from .postprocessing import saveplot
+from .postprocessing import saveplot, save_loss_history
 
 # Backward compatibility
 maps = nn

@@ -1,7 +1,7 @@
 __all__ = ["get", "is_external_optimizer"]
 
 import torch
-
+import torch_optimizer as optim
 from ..config import LBFGS_options
 
 
@@ -33,9 +33,12 @@ def get(params, optimizer, learning_rate=None, decay=None):
 
     if decay is not None:
         # TODO: learning rate decay
+        #torch.optim.lr_scheduler
         raise NotImplementedError(
             "learning rate decay to be implemented for backend pytorch."
         )
     if optimizer == "adam":
         return torch.optim.Adam(params, lr=learning_rate)
+    if optimizer == "diffGrad_v2":
+        return optim.DiffGrad(params, lr=learning_rate)
     raise NotImplementedError(f"{optimizer} to be implemented for backend pytorch.")
