@@ -129,7 +129,7 @@ class GeometryXTime(object):
             rng = np.random.default_rng(seed)
             xt = np.delete(xt, rng.choice(len(xt), size=extra_points, replace=False), axis=0)
         elif n > len(xt):
-            y = self.uniform_boundary_points(self, extra_points, boundary=boundary, seed=seed)
+            y = self.uniform_boundary_points(self, extra_points, seed=seed)
             xt = np.vstack((xt, y))
         if n != len(xt):
             print(

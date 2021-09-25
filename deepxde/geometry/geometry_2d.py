@@ -129,25 +129,47 @@ class Rectangle(Hypercube):
 
     def random_boundary_points(self, n, random="pseudo", seed=None):
         l1 = self.xmax[0] - self.xmin[0]
-        l2 = l1 + self.xmax[1] - self.xmin[1]
+        l2 = self.xmax[1] - self.xmin[1]
         l3 = l2 + l1
-        u = np.ravel(sample(n + 5, 1, random, seed))
+        u = np.ravel(sample(int(1.1*n), 1, random, seed))
         # Remove the possible points very close to the corners
         u = u[np.logical_not(np.isclose(u, l1 / self.perimeter))]
-        u = u[np.logical_not(np.isclose(u, l3 / self.perimeter))]
+        u = u[np.logical_not(np.isclose(u, l2 / self.perimeter))]
         u = u[:n]
-
+        n_edge = int(n/4)
         u *= self.perimeter
         x = []
-        for l in u:
-            if l < l1:
-                x.append([self.xmin[0] + l, self.xmin[1]])
-            elif l < l2:
-                x.append([self.xmax[0], self.xmin[1] + l - l1])
-            elif l < l3:
-                x.append([self.xmax[0] - l + l2, self.xmax[1]])
+        for l in range(4):
+            if l < 1:
+                u = np.ravel(sample(int(n_edge), 1, random, seed))*l1
+                u = u[(u>1e-8) & (u < l1-1e-8)]
+                u = u[:n_edge]
+                L1_p = np.array([self.xmin[0] + u, np.repeat(self.xmin[1], n_edge)]).T
+                x.append(L1_p)
+                # Remove the possible points very close to the corners
+                #u = u[np.logical_not(np.isclose(u, l1 / self.perimeter))]
+                #x.append([self.xmin[0] + l, self.xmin[1]])
+            elif l < 2:
+                u = np.ravel(sample(int(n_edge), 1, random, seed))*l2
+                u = u[(u>1e-8) & (u < l2-1e-8)]
+                u = u[:n_edge]
+                L2_p = np.array([np.repeat(self.xmax[0], n_edge), self.xmin[1] + u]).T
+                x.append(L2_p)
+                #x.append([self.xmax[0], self.xmin[1] + l - l1])
+            elif l < 3:
+                u = np.ravel(sample(int(n_edge), 1, random, seed)) * l1
+                u = u[(u > 1e-8) & (u < l1 - 1e-8)]
+                u = u[:n_edge]
+                L3_p = np.array([self.xmin[0] + u, np.repeat(self.xmax[1], n_edge)]).T
+                x.append(L3_p)
+                #x.append([self.xmax[0] - l + l2, self.xmax[1]])
             else:
-                x.append([self.xmin[0], self.xmax[1] - l + l3])
+                u = np.ravel(sample(int(n_edge), 1, random, seed))*l2
+                u = u[(u>1e-8) & (u < l2-1e-8)]
+                u = u[:n_edge]
+                L4_p = np.array([np.repeat(self.xmin[0], n_edge), self.xmin[1]+ u]).T
+                x.append(L4_p)
+                #x.append([self.xmin[0], self.xmax[1] - l + l3])
         return np.vstack(x)
 
     @staticmethod
