@@ -1,4 +1,11 @@
+ignore-paths:
+  - deepxde/backend/backend.py
+
 pep257:
   disable:
     - D203
     - D213
+
+pylint:
+  disable:
+    - too-many-arguments
