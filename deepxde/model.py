@@ -365,9 +365,11 @@ class Model(object):
             if backend_name == "pytorch":
                 from torch.utils.tensorboard import SummaryWriter
                 if logname is not None:
-                    self.train_state.writer = SummaryWriter('runs/'+logname)
+                    self.train_state.train_writer = SummaryWriter('runs/'+logname+'_train')
+                    self.train_state.test_writer = SummaryWriter('runs/'+logname+'_test')
                 else:
-                    self.train_state.writer = SummaryWriter()
+                    self.train_state.train_writer = SummaryWriter()
+                    self.train_state.test_writer = SummaryWriter()
                 self.train_state.loss_names = loss_names
         self.train_state.Tensorboard = Tensorboard
         self.train_state.save_every=save_every
@@ -548,9 +550,12 @@ class Model(object):
         if (self.train_state.Tensorboard is not None) and (self.train_state.loss_names is not None):
             if backend_name == 'pytorch':
                 for k in range(len(self.train_state.loss_names)):
-                    self.train_state.writer.add_scalar(self.train_state.loss_names[k],
+                    self.train_state.train_writer.add_scalar(self.train_state.loss_names[k],
                                                        self.train_state.loss_train[k], self.train_state.step)
-                self.train_state.writer.add_scalar('Total loss', sum(self.train_state.loss_train), self.train_state.step)
+                    self.train_state.test_writer.add_scalar(self.train_state.loss_names[k],
+                                                       self.train_state.loss_test[k], self.train_state.step)
+                self.train_state.train_writer.add_scalar('Total loss', sum(self.train_state.loss_train), self.train_state.step)
+                self.train_state.test_writer.add_scalar('Total loss', sum(self.train_state.loss_test), self.train_state.step)
 
         display.training_display(self.train_state)
 
@@ -640,6 +645,7 @@ class Model(object):
             self.net.load_state_dict(checkpoint['model_state_dict'])
             self.opt.load_state_dict(checkpoint['optimizer_state_dict'])
             self.train_state.epoch = checkpoint['epoch']
+            self.train_state.step = checkpoint['epoch']
             #loss = checkpoint['loss']
 
     def print_model(self):
@@ -698,7 +704,8 @@ class TrainState(Model):
         self.save_path = None
         self.protocol = None
         self.save_every = None
-        self.writer = None
+        self.train_writer = None
+        self.test_writer = None
         self.Tensorboard = None
         self.loss_names = None
 
