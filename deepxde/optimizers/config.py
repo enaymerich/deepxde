@@ -14,6 +14,7 @@ def set_LBFGS_options(
     maxiter=15000,
     maxfun=None,
     maxls=50,
+    iter_per_step=1000,
 ):
     """Sets the hyperparameters of L-BFGS.
 
@@ -57,17 +58,17 @@ def set_LBFGS_options(
     LBFGS_options["maxiter"] = maxiter
     LBFGS_options["maxfun"] = maxfun if maxfun is not None else int(maxiter * 1.25)
     LBFGS_options["maxls"] = maxls
-
+    # Backend-dependent options
+    if backend_name == "pytorch":
+        # number of iterations per optimization call
+        LBFGS_options["iter_per_step"] = iter_per_step
+        LBFGS_options["fun_per_step"] = (
+            LBFGS_options["maxfun"]
+            * LBFGS_options["iter_per_step"]
+            // LBFGS_options["maxiter"]
+        )
 
 set_LBFGS_options()
 
 
-# Backend-dependent options
-if backend_name == "pytorch":
-    # number of iterations per optimization call
-    LBFGS_options["iter_per_step"] = min(1000, LBFGS_options["maxiter"])
-    LBFGS_options["fun_per_step"] = (
-        LBFGS_options["maxfun"]
-        * LBFGS_options["iter_per_step"]
-        // LBFGS_options["maxiter"]
-    )
+

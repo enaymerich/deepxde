@@ -496,11 +496,14 @@ class Model(object):
             if prev_n_iter == n_iter:
                 # Converged
                 break
-
             self.train_state.epoch += n_iter - prev_n_iter
             self.train_state.step += n_iter - prev_n_iter
             prev_n_iter = n_iter
             self._test()
+            if any(np.isnan(self.train_state.loss_train)):
+                self.restore(self.train_state.save_path)
+                print("nan value, stop training and keeping last save")
+                self.stop_training = True
 
             self.callbacks.on_batch_end()
             self.callbacks.on_epoch_end()
