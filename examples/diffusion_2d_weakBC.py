@@ -44,7 +44,7 @@ optim = "adam"
 weights = [0.25,0.75,0.75,0.75]
 #weights = np.ndarray.tolist(np.exp(weights)/sum(np.exp(weights)))
 #weights = [0, 0, 0, 1]
-logname = 'theo_deepxde_BC_weak_alpha075'
+logname = 'theo_deepxde_BC_weak_alpha075_earlystop'
 
 
 def pde(x, y):
@@ -138,11 +138,12 @@ model = dde.Model(data, net)
 loss_names=['PDE_loss', 'BC_x loss','BC_y loss','IC loss']
 model.compile(optim, lr=lr, loss=loss, loss_weights=weights)
 resampler = dde.callbacks.PDEResidualResampler(period=10000)
-losshistory, train_state = model.train(epochs=500000, display_every=1000, save_every=5000,
+early_stop = dde.callbacks.EarlyStopping(min_delta=1e-8, patience=50000)
+losshistory, train_state = model.train(epochs=500000, display_every=500, save_every=5000,
                                        model_save_path=logname+'.pt',
                                        #model_restore_path=logname+'.pt',
                                        logname=logname,
-                                       callbacks=[resampler],
+                                       callbacks=[resampler, early_stop],
                                        Tensorboard=True, loss_names=loss_names)
 
 dde.saveplot(losshistory, train_state, issave=True, isplot=True)
