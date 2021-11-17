@@ -6,6 +6,7 @@ Here is a list of research papers that used DeepXDE. If you would like your pape
 PINN
 ----
 
+#. J. Yu, L. Lu, X. Meng, & G. E. Karniadakis. `Gradient-enhanced physics-informed neural networks for forward and inverse PDE problems <https://arxiv.org/abs/2111.02801>`_. *arXiv preprint arXiv:2111.02801*, 2021.
 #. S. Lee, & T. Kadeethum. `Physics-informed neural networks for solving coupled flow and transport system <http://ceur-ws.org/Vol-2964/article_197.pdf>`_. 2021.
 #. Y. Chen, & L. Dal Negro. `Physics-informed neural networks for imaging and parameter retrieval of photonic nanostructures from near-field data <https://arxiv.org/abs/2109.12754>`_. *arXiv preprint arXiv:2109.12754*, 2021.
 #. A. M. Ncube, G. E. Harmsen, & A. S. Cornell. `Investigating a new approach to quasinormal modes: Physics-informed neural networks <https://arxiv.org/abs/2108.05867>`_. *arXiv preprint arXiv:2108.05867*, 2021.
@@ -22,6 +23,8 @@ PINN
 DeepONet
 --------
 
+#. L. Lu, X. Meng, S. Cai, Z. Mao, S. Goswami, Z. Zhang, & G. E. Karniadakis. `A comprehensive and fair comparison of two neural operators (with practical extensions) based on FAIR data <https://arxiv.org/abs/2111.05512>`_. *arXiv preprint arXiv:2111.05512*, 2021.
+#. C. Lin, M. Maxey, Z. Li, & G. E. Karniadakis. `A seamless multiscale operator neural network for inferring bubble dynamics <https://doi.org/10.1017/jfm.2021.866>`_. *Journal of Fluid Mechanics*, 929, A18, 2021.
 #. Z. Mao, L. Lu, O. Marxen, T. A. Zaki, & G. E. Karniadakis. `DeepM&Mnet for hypersonics: Predicting the coupled flow and finite-rate chemistry behind a normal shock using neural-network approximation of operators <https://doi.org/10.1016/j.jcp.2021.110698>`_. *Journal of Computational Physics*, 447, 110698, 2021.
 #. P. Clark Di Leoni, L. Lu, C. Meneveau, G. E. Karniadakis, & T. A. Zaki. `DeepONet prediction of linear instability waves in high-speed boundary layers <https://arxiv.org/abs/2105.08697>`_. *arXiv preprint arXiv:2105.08697*, 2021.
 #. S. Cai, Z. Wang, L. Lu, T. A. Zaki, & G. E. Karniadakis. `DeepM&Mnet: Inferring the electroconvection multiphysics fields based on operator approximation by neural networks <https://doi.org/10.1016/j.jcp.2021.110296>`_. *Journal of Computational Physics*, 436, 110296, 2021.

@@ -4,4 +4,10 @@ __pycache__/
 
 # Sphinx documentation
 docs/_build/
+<<<<<<< HEAD
 /examples/theo_deepxde_BC_weak_alpha075/
+=======
+
+
+# Jupyter notebook
+.ipynb_checkpoints
