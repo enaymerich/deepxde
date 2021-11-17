@@ -222,7 +222,7 @@ def npfunc_range_autocache(func):
 
     @wraps(func)
     def wrapper_cache(X, beg, end):
-        key = (hash(sum(X[-1,:]).tolist()), beg, end)
+        key = (hash(sum(X[-2:,:].flatten()).tolist()), beg, end)
         if key not in cache:
             cache[key] = func(X[beg:end])
         return cache[key]

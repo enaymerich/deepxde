@@ -141,10 +141,10 @@ class Rectangle(Hypercube):
         x = []
         for l in range(4):
             if l < 1:
-                u = np.ravel(sample(int(n_edge), 1, random, seed))*l1
+                u = np.ravel(sample(int(n_edge+n%4), 1, random, seed))*l1
                 u = u[(u>1e-8) & (u < l1-1e-8)]
-                u = u[:n_edge]
-                L1_p = np.array([self.xmin[0] + u, np.repeat(self.xmin[1], n_edge)]).T
+                u = u[:(n_edge+n%4)]
+                L1_p = np.array([self.xmin[0] + u, np.repeat(self.xmin[1], n_edge+n%4)]).T
                 x.append(L1_p)
                 # Remove the possible points very close to the corners
                 #u = u[np.logical_not(np.isclose(u, l1 / self.perimeter))]
