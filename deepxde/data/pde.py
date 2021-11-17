@@ -255,14 +255,8 @@ class PDE(Data):
     def test_points(self):
         # TODO: Use different BC points from self.train_x_bc
         x = self.geom.uniform_points(self.num_test, boundary=False)
-        if self.num_initial > 0:
-            tmp = self.geom.uniform_initial_points(self.num_initial, seed=self.seed)
-            tmp = np.vstack((tmp,x))
-        else:
-            tmp = np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
         if self.num_boundary > 0:
-            tmp_2 = self.geom.random_boundary_points(self.num_boundary)
-            tmp = np.vstack((tmp_2,tmp))
+            tmp = self.geom.random_boundary_points(self.num_boundary)
         tmp = self.test_bc_points(tmp)
 
         return np.vstack((tmp,x))
@@ -335,3 +329,18 @@ class TimePDE(PDE):
                 tmp = np.array(list(filter(is_not_excluded, tmp)))
             X_bound = np.vstack((tmp, X_bound))
         return X, X_bound
+
+    def test_points(self):
+        # TODO: Use different BC points from self.train_x_bc
+        x = self.geom.uniform_points(self.num_test, boundary=False)
+        if self.num_initial > 0:
+            tmp = self.geom.uniform_initial_points(self.num_initial, seed=self.seed)
+            tmp = np.vstack((tmp,x))
+        else:
+            tmp = np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
+        if self.num_boundary > 0:
+            tmp_2 = self.geom.random_boundary_points(self.num_boundary)
+            tmp = np.vstack((tmp_2,tmp))
+        tmp = self.test_bc_points(tmp)
+
+        return np.vstack((tmp,x))
