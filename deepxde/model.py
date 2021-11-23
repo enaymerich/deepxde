@@ -540,8 +540,8 @@ class Model(object):
                 m(self.train_state.y_test, self.train_state.y_pred_test)
                 for m in self.metrics
             ]
-        self.train_state.loss_train = self.train_state.loss_train/self.losshistory.loss_weights
-        self.train_state.loss_test = self.train_state.loss_test/self.losshistory.loss_weights
+        self.train_state.loss_train = self.train_state.loss_train#/self.losshistory.loss_weights
+        self.train_state.loss_test = self.train_state.loss_test#/self.losshistory.loss_weights
 
         self.train_state.update_best(self.net, self.opt)
         self.losshistory.append(
