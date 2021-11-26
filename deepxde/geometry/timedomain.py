@@ -72,10 +72,8 @@ class GeometryXTime(object):
         xt = np.vstack(xt)
 
         extra_points = abs(len(xt) - n)
-        if n < len(xt):
-            rng = np.random.default_rng(seed)
-            xt = np.delete(xt, rng.choice(len(xt), size=extra_points, replace=False), axis=0)
-        elif n > len(xt):
+
+        if n > len(xt):
             y = self.uniform_points(self, extra_points, boundary=boundary, seed=seed)
             xt = np.vstack((xt, y))
 
@@ -83,7 +81,7 @@ class GeometryXTime(object):
             print(
                 "Warning: {} points required, but {} points sampled.".format(n, len(xt))
             )
-        return xt
+        return xt[0:n]
 
     def random_points(self, n, random="pseudo", seed=None):
         x = self.geometry.random_points(n, random=random, seed=seed)
@@ -143,18 +141,15 @@ class GeometryXTime(object):
         t = np.random.default_rng(seed).permutation(t)
         return np.hstack((x, t))
 
-    def uniform_initial_points(self, n, seed=None):
+    def uniform_initial_points(self, n):
         x = self.geometry.uniform_points(n, True)
         t = self.timedomain.t0
 
         extra_points = abs(len(x) - n)
-        if n < len(x):
-            rng = np.random.default_rng(seed)
-            x = np.delete(x, rng.choice(len(x), size=extra_points, replace=False), axis=0)
-        elif n > len(x):
-            y = self.uniform_initial_points(self, extra_points, seed=seed)
+        if n > len(x):
+            y = self.uniform_initial_points(self, extra_points)
             x = np.vstack((x, y))
-
+        x = x[0:n]
         return np.hstack((x, np.full([len(x), 1], t, dtype=config.real(np))))
 
     def random_initial_points(self, n, random="pseudo", seed=None):

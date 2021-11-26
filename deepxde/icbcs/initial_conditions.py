@@ -30,6 +30,14 @@ class IC(object):
     def collocation_points(self, X):
         return self.filter(X)
 
+    def sample_points(self, num_points, train_distribution, seed):
+        if train_distribution == "uniform":
+            X = self.geom.uniform_initial_points(num_points, seed=seed)
+        else:
+            X = self.geom.random_initial_points(num_points, random=train_distribution, seed=seed)
+        return X
+
+
     def error(self, X, inputs, outputs, beg, end):
         values = self.func(X, beg, end)
         if bkd.ndim(values) > 0 and bkd.shape(values)[1] != 1:
