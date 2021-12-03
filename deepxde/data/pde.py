@@ -82,6 +82,7 @@ class PDE(Data):
         num_boundary=0,
         train_distribution="Sobol",
         anchors=None,
+        anchors_bc=None,
         exclusions=None,
         solution=None,
         num_test=None,
@@ -109,6 +110,7 @@ class PDE(Data):
             )
         self.train_distribution = train_distribution
         self.anchors = None if anchors is None else anchors.astype(config.real(np))
+        self.anchors_bc = None if anchors_bc is None else anchors_bc.astype(config.real(np))
         self.exclusions = exclusions
 
         self.soln = solution
@@ -197,7 +199,7 @@ class PDE(Data):
         self.train_x_bc = None
         self.train_next_batch()
 
-    def add_anchors(self, anchors):
+    def add_anchors(self, anchors, anchors_bc):
         """Add new points for training PDE losses. The BC points will not be updated."""
         anchors = anchors.astype(config.real(np))
         if self.anchors is None:
@@ -245,7 +247,7 @@ class PDE(Data):
     def bc_points(self):
         pts = self.train_x
         np.random.shuffle(pts)
-        x_bcs = [bc.collocation_points(pts) for bc in self.bcs]
+        x_bcs = [bc.collocation_points(pts, anchors_bc=self.anchors_bc) for bc in self.bcs]
         self.num_bcs = list(map(len, x_bcs))
         self.train_x_bc = (
             np.vstack(x_bcs)
@@ -293,6 +295,7 @@ class TimePDE(PDE):
         num_initial=0,
         train_distribution="Sobol",
         anchors=None,
+        anchors_bs = None,
         exclusions=None,
         solution=None,
         num_test=None,
@@ -308,6 +311,7 @@ class TimePDE(PDE):
             num_boundary,
             train_distribution=train_distribution,
             anchors=anchors,
+            anchors_bc=anchors_bc,
             exclusions=exclusions,
             solution=solution,
             num_test=num_test,
