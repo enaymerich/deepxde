@@ -51,7 +51,7 @@ class BC(ABC):
     def filter(self, X):
         return X[self.on_boundary(X, self.geom.on_boundary(X))]
 
-    def collocation_points(self, X):
+    def collocation_points(self, X, anchors_bc=None):
         X = self.filter(X)
         if len(X) > self.points:
             X = X[0:self.points]
@@ -60,6 +60,7 @@ class BC(ABC):
                 "Warning: {} points required, but {} points sampled. ".format(self.points, len(X)) +
                 "This may cause error if resampling"
             )
+        X = np.vstack((X, self.filter(anchors_bc))) if anchors_bc is not None else X
         return self.filter(X)
 
     def normal_derivative(self, X, inputs, outputs, beg, end):
@@ -126,7 +127,7 @@ class PeriodicBC(BC):
                 "PeriodicBC only supports derivative_order 0 or 1."
             )
 
-    def collocation_points(self, X):
+    def collocation_points(self, X, anchors_bc=None):
         X1 = self.filter(X)
         X2 = self.geom.periodic_point(X1, self.component_x)
         return np.vstack((X1, X2))
@@ -182,7 +183,7 @@ class PointSetBC(object):
         self.values = bkd.as_tensor(values, dtype=config.real(bkd.lib))
         self.component = component
 
-    def collocation_points(self, X):
+    def collocation_points(self, X, anchors_bc=None):
         return self.points
 
     def error(self, X, inputs, outputs, beg, end):

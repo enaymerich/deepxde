@@ -27,7 +27,8 @@ class IC(object):
     def filter(self, X):
         return X[self.on_initial(X, self.geom.on_initial(X))]
 
-    def collocation_points(self, X):
+    def collocation_points(self, X, anchors_bc=None):
+        X = np.vstack((X, anchors_bc)) if anchors_bc is not None else X
         return self.filter(X)
 
     def sample_points(self, num_points, train_distribution, seed):
