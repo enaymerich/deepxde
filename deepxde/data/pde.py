@@ -243,7 +243,9 @@ class PDE(Data):
 
     @run_if_all_none("train_x_bc")
     def bc_points(self):
-        x_bcs = [bc.collocation_points(self.train_x) for bc in self.bcs]
+        pts = self.train_x
+        np.random.shuffle(pts)
+        x_bcs = [bc.collocation_points(pts) for bc in self.bcs]
         self.num_bcs = list(map(len, x_bcs))
         self.train_x_bc = (
             np.vstack(x_bcs)
@@ -256,13 +258,14 @@ class PDE(Data):
         # TODO: Use different BC points from self.train_x_bc
         x = self.geom.uniform_points(self.num_test, boundary=False)
         if self.num_boundary > 0:
-            tmp = self.geom.random_boundary_points(self.num_boundary)
+            tmp = self.geom.random_boundary_points(self.num_boundary, seed=self.seed+np.random.randint(1))
         tmp = self.test_bc_points(tmp)
 
         return np.vstack((tmp,x))
 
     @run_if_all_none("test_x_bc")
     def test_bc_points(self, pts):
+        np.random.shuffle(pts)
         x_bcs = [bc.collocation_points(pts) for bc in self.bcs]
         self.test_x_bc = (
             np.vstack(x_bcs)
@@ -284,7 +287,7 @@ class TimePDE(PDE):
         self,
         geometryxtime,
         pde,
-        ic_bcs,
+        ic_bcs=[],
         num_domain=0,
         num_boundary=0,
         num_initial=0,
@@ -316,7 +319,7 @@ class TimePDE(PDE):
         X, X_bound = super(TimePDE, self).train_points()
         if self.num_initial > 0:
             if self.train_distribution == "uniform":
-                tmp = self.geom.uniform_initial_points(self.num_initial, seed=self.seed)
+                tmp = self.geom.uniform_initial_points(self.num_initial)
             else:
                 tmp = self.geom.random_initial_points(
                     self.num_initial, random=self.train_distribution, seed=self.seed
@@ -334,12 +337,12 @@ class TimePDE(PDE):
         # TODO: Use different BC points from self.train_x_bc
         x = self.geom.uniform_points(self.num_test, boundary=False)
         if self.num_initial > 0:
-            tmp = self.geom.uniform_initial_points(self.num_initial, seed=self.seed)
+            tmp = self.geom.uniform_initial_points(self.num_initial)
             tmp = np.vstack((tmp,x))
         else:
             tmp = np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
         if self.num_boundary > 0:
-            tmp_2 = self.geom.random_boundary_points(self.num_boundary)
+            tmp_2 = self.geom.random_boundary_points(self.num_boundary, seed=self.seed)
             tmp = np.vstack((tmp_2,tmp))
         tmp = self.test_bc_points(tmp)
 
