@@ -295,7 +295,7 @@ class TimePDE(PDE):
         num_initial=0,
         train_distribution="Sobol",
         anchors=None,
-        anchors_bs = None,
+        anchors_bc = None,
         exclusions=None,
         solution=None,
         num_test=None,
