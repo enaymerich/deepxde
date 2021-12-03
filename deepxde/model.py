@@ -19,7 +19,7 @@ from . import optimizers
 from . import utils
 from .backend import backend_name, tf, torch
 from .callbacks import CallbackList
-
+from hessian import funs
 
 class Model(object):
     """A ``Model`` trains a ``NN`` on a ``Data``.
@@ -62,6 +62,7 @@ class Model(object):
         decay=None,
         loss_weights=None,
         external_trainable_variables=None,
+        loss_norm=1,
     ):
         """Configures the model for training.
 
@@ -112,7 +113,7 @@ class Model(object):
         elif backend_name == "tensorflow":
             self._compile_tensorflow(lr, loss_fn, decay, loss_weights)
         elif backend_name == "pytorch":
-            self._compile_pytorch(lr, loss_fn, decay, loss_weights)
+            self._compile_pytorch(lr, loss_fn, decay, loss_weights, loss_norm)
 
         # metrics may use model variables such as self.net, and thus are instantiated
         # after backend compile.
@@ -214,9 +215,8 @@ class Model(object):
             else train_step_tfp
         )
 
-    def _compile_pytorch(self, lr, loss_fn, decay, loss_weights):
+    def _compile_pytorch(self, lr, loss_fn, decay, loss_weights, loss_norm):
         """pytorch"""
-
         def outputs(training, inputs):
             self.net.train(mode=training)
             with torch.no_grad():
@@ -236,9 +236,8 @@ class Model(object):
             # TODO: regularization
             losses = torch.stack(losses)
             # Weighted losses
-            if loss_weights is not None:
-                losses *= torch.as_tensor(loss_weights)
-                self.losshistory.set_loss_weights(loss_weights)
+            if self.losshistory.loss_weights is not None:
+                losses *= torch.as_tensor(self.losshistory.loss_weights)/loss_norm
             # Clear cached Jacobians and Hessians.
             grad.clear()
             return outputs_, losses
@@ -259,14 +258,17 @@ class Model(object):
                 total_loss = torch.sum(losses)
                 self.opt.zero_grad()
                 total_loss.backward()
-                return total_loss
+                return losses
 
-            self.opt.step(closure)
+            losses = closure()
+            self.opt.step()
+            return losses
 
         # Callables
         self.outputs = outputs
         self.outputs_losses = outputs_losses
         self.train_step = train_step
+        self.losshistory.set_loss_weights(np.asarray(loss_weights))
 
     def _outputs(self, training, inputs):
         if backend_name == "tensorflow.compat.v1":
@@ -284,9 +286,40 @@ class Model(object):
             outs = self.outputs_losses(training, inputs, targets, auxiliary_vars)
         elif backend_name == "pytorch":
             # TODO: auxiliary_vars
-            self.net.requires_grad_(requires_grad=False)
-            outs = self.outputs_losses(training, inputs, targets)
+            self.net.requires_grad_(requires_grad=training)
+            out, losses = self.outputs_losses(training, inputs, targets)
+
+
+            outs = (out.detach(), losses.detach())
+####GRADS
+            #if training:
+                #l_p = losses[0]
+                #l_p.backward(retain_graph=True)
+                #params, grads = funs.get_params_grad(self.net)
+                #l_grads = torch.column_stack([g.reshape(1, -1) for g in grads])
+                #max_lp = torch.max(torch.abs(l_grads))
+                #w = [1]
+                #for l in losses[1:]:
+                #    l.backward(retain_graph=True)
+                #    params, grads = funs.get_params_grad(self.net)
+                #    l_grads = torch.column_stack([g.reshape(1, -1) for g in grads])
+               #     mean_l = torch.mean(torch.abs(l_grads))
+                #    w.append((max_lp/mean_l).cpu())
+                #    self.net.zero_grad()
+                #l.backward(retain_graph=False)
+                #w = 0.1 * self.losshistory.loss_weights + 0.9 * np.asarray(w)
+                #self.losshistory.set_loss_weights(w)
+                #print('New weights', w)
+                #L = sum(losses)
+                #L.backward(create_graph=True, retain_graph=True)
+                #eigs, eigvs = funs.eigenvalues(self.net, self.net.inputs.device, top_n=1)
+                #print('max eigval', eigs)
+
+                #self.net.zero_grad()
+                #torch.cuda.empty_cache()
+
             self.net.requires_grad_()
+            
         return utils.to_numpy(outs)
 
     def _train_step(self, inputs, targets, auxiliary_vars):
@@ -726,7 +759,7 @@ class TrainState(Model):
         self.test_aux_vars = test_aux_vars
 
     def update_best(self, net, opt):
-        if self.best_loss_train > np.sum(self.loss_train):
+        if self.best_loss_test > np.sum(self.loss_test):
             self.best_step = self.step
             self.best_loss_train = np.sum(self.loss_train)
             self.best_loss_test = np.sum(self.loss_test)
