@@ -8,6 +8,7 @@ import numpy as np
 
 from .geometry_2d import Rectangle
 from .geometry_nd import Hypercube, Hypersphere
+from .. import config
 
 
 class Cuboid(Hypercube):
@@ -83,15 +84,11 @@ class Cuboid(Hypercube):
                 pts.append(np.hstack((np.full((len(u), 1), v), u)))
         pts = np.vstack(pts)
 
-        extra_points = abs(len(x) - n)
-        if n < len(pts):
-            rng = np.random.default_rng(seed)
-            pts = np.delete(pts, rng.choice(len(pts), size=extra_points, replace=False), axis=0)
-        elif n > len(x):
+        extra_points = n - len(x)
+        if n > len(x):
             y = self.uniform_boundary_points(self, extra_points, seed=seed)
             pts = np.vstack((x, y))
-
-        return x.astype(config.real(np))
+        pts = pts[:n,:]
         if n != len(pts):
             print(
                 "Warning: {} points required, but {} points sampled.".format(

@@ -78,13 +78,11 @@ class Hypercube(Geometry):
                 )
         ###edit: added dtype (error in pytorch)
         x = np.array(list(itertools.product(*xi)))
-        extra_points = abs(len(x) - n)
-        if n < len(x):
-            x = np.delete(x, np.random.randint(0, len(x), size=extra_points), axis=0)
-        elif n > len(x):
+        extra_points = n-len(x)
+        if n > len(x):
             y = self.uniform_boundary_points(self, extra_points)
             x = np.vstack((x, y))
-
+        x = x[:n,:]
         return x.astype(config.real(np))
 
     def random_points(self, n, random="pseudo", seed=None):

@@ -81,6 +81,7 @@ class PDE(Data):
         num_domain=0,
         num_boundary=0,
         train_distribution="Sobol",
+        test_distribution="uniform",
         anchors=None,
         anchors_bc=None,
         exclusions=None,
@@ -109,6 +110,20 @@ class PDE(Data):
                 )
             )
         self.train_distribution = train_distribution
+        if test_distribution not in [
+            "uniform",
+            "pseudo",
+            "LHS",
+            "Halton",
+            "Hammersley",
+            "Sobol",
+        ]:
+            raise ValueError(
+                "train_distribution == {} is not available choices.".format(
+                    test_distribution
+                )
+            )
+        self.test_distribution = test_distribution
         self.anchors = None if anchors is None else anchors.astype(config.real(np))
         self.anchors_bc = None if anchors_bc is None else anchors_bc.astype(config.real(np))
         self.exclusions = exclusions
@@ -258,9 +273,19 @@ class PDE(Data):
 
     def test_points(self):
         # TODO: Use different BC points from self.train_x_bc
-        x = self.geom.uniform_points(self.num_test, boundary=False)
+        if self.test_distribution == "uniform":
+            x = self.geom.uniform_points(self.num_test, boundary=False)
+        else:
+            x = self.geom.random_points(self.num_test, random=self.test_distribution, seed=self.seed)
+
+        tmp = np.empty((0, self.geom.dim), dtype=config.real(np))
         if self.num_boundary > 0:
-            tmp = self.geom.random_boundary_points(self.num_boundary, seed=self.seed+np.random.randint(1))
+            if self.test_distribution == "uniform":
+                tmp = self.geom.uniform_boundary_points(self.num_initial)
+            else:
+                tmp = self.geom.random_boundary_points(
+                    self.num_boundary, random=self.train_distribution, seed=self.seed
+                )
         tmp = self.test_bc_points(tmp)
 
         return np.vstack((tmp,x))
@@ -294,6 +319,7 @@ class TimePDE(PDE):
         num_boundary=0,
         num_initial=0,
         train_distribution="Sobol",
+        test_distribution = "uniform",
         anchors=None,
         anchors_bc = None,
         exclusions=None,
@@ -310,6 +336,7 @@ class TimePDE(PDE):
             num_domain,
             num_boundary,
             train_distribution=train_distribution,
+            test_distribution=test_distribution,
             anchors=anchors,
             anchors_bc=anchors_bc,
             exclusions=exclusions,
@@ -339,14 +366,27 @@ class TimePDE(PDE):
 
     def test_points(self):
         # TODO: Use different BC points from self.train_x_bc
-        x = self.geom.uniform_points(self.num_test, boundary=False)
+        if self.test_distribution == "uniform":
+            x = self.geom.uniform_points(self.num_test, boundary=False)
+        else:
+            x = self.geom.random_points(self.num_test, random=self.test_distribution, seed=self.seed)
         if self.num_initial > 0:
-            tmp = self.geom.uniform_initial_points(self.num_initial)
+            if self.test_distribution == "uniform":
+                tmp = self.geom.uniform_initial_points(self.num_initial)
+            else:
+                tmp = self.geom.random_initial_points(
+                    self.num_initial, random=self.train_distribution, seed=self.seed
+                )
             tmp = np.vstack((tmp,x))
         else:
             tmp = np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
         if self.num_boundary > 0:
-            tmp_2 = self.geom.random_boundary_points(self.num_boundary, seed=self.seed)
+            if self.test_distribution == "uniform":
+                tmp_2 = self.geom.uniform_boundary_points(self.num_initial)
+            else:
+                tmp_2 = self.geom.random_boundary_points(
+                    self.num_boundary, random=self.train_distribution, seed=self.seed
+                )
             tmp = np.vstack((tmp_2,tmp))
         tmp = self.test_bc_points(tmp)
 

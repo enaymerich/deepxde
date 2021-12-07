@@ -71,17 +71,17 @@ class GeometryXTime(object):
             xt.append(np.hstack((x, np.full([nx, 1], ti[0]))))
         xt = np.vstack(xt)
 
-        extra_points = abs(len(xt) - n)
+        extra_points = n-len(xt)
 
         if n > len(xt):
             y = self.uniform_points(self, extra_points, boundary=boundary, seed=seed)
             xt = np.vstack((xt, y))
-
+        xt = xt[0:n,:]
         if n != len(xt):
             print(
                 "Warning: {} points required, but {} points sampled.".format(n, len(xt))
             )
-        return xt[0:n]
+        return xt
 
     def random_points(self, n, random="pseudo", seed=None):
         x = self.geometry.random_points(n, random=random, seed=seed)
@@ -89,7 +89,7 @@ class GeometryXTime(object):
         t = np.random.default_rng(seed).permutation(t)
         return np.hstack((x, t))
 
-    def uniform_boundary_points(self, n, seed=None):
+    def uniform_boundary_points(self, n):
         """Uniform boundary points on the spatio-temporal domain.
 
         Geometry surface area ~ bbox.
@@ -122,13 +122,11 @@ class GeometryXTime(object):
             xt.append(np.hstack((x, np.full([nx, 1], ti))))
         xt = np.vstack(xt)
 
-        extra_points = abs(len(xt) - n)
-        if n < len(xt):
-            rng = np.random.default_rng(seed)
-            xt = np.delete(xt, rng.choice(len(xt), size=extra_points, replace=False), axis=0)
-        elif n > len(xt):
-            y = self.uniform_boundary_points(self, extra_points, seed=seed)
+        extra_points = n-len(xt)
+        if n > len(xt):
+            y = self.uniform_boundary_points(self, extra_points)
             xt = np.vstack((xt, y))
+        xt = xt[:n,:]
         if n != len(xt):
             print(
                 "Warning: {} points required, but {} points sampled.".format(n, len(xt))

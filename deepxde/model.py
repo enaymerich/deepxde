@@ -287,11 +287,10 @@ class Model(object):
         elif backend_name == "pytorch":
             # TODO: auxiliary_vars
             self.net.requires_grad_(requires_grad=training)
-            out, losses = self.outputs_losses(training, inputs, targets)
+            outs = self.outputs_losses(training, inputs, targets)
 
-
-            outs = (out.detach(), losses.detach())
 ####GRADS
+            #losses=outs[1]
             #if training:
                 #l_p = losses[0]
                 #l_p.backward(retain_graph=True)
@@ -303,13 +302,14 @@ class Model(object):
                 #    l.backward(retain_graph=True)
                 #    params, grads = funs.get_params_grad(self.net)
                 #    l_grads = torch.column_stack([g.reshape(1, -1) for g in grads])
-               #     mean_l = torch.mean(torch.abs(l_grads))
+                #    mean_l = torch.mean(torch.abs(l_grads))
                 #    w.append((max_lp/mean_l).cpu())
                 #    self.net.zero_grad()
                 #l.backward(retain_graph=False)
                 #w = 0.1 * self.losshistory.loss_weights + 0.9 * np.asarray(w)
                 #self.losshistory.set_loss_weights(w)
-                #print('New weights', w)
+                #self.losshistory.weight_history.append(w)
+
                 #L = sum(losses)
                 #L.backward(create_graph=True, retain_graph=True)
                 #eigs, eigvs = funs.eigenvalues(self.net, self.net.inputs.device, top_n=1)
@@ -573,8 +573,8 @@ class Model(object):
                 m(self.train_state.y_test, self.train_state.y_pred_test)
                 for m in self.metrics
             ]
-        self.train_state.loss_train = self.train_state.loss_train#/self.losshistory.loss_weights
-        self.train_state.loss_test = self.train_state.loss_test#/self.losshistory.loss_weights
+        self.train_state.loss_train = self.train_state.loss_train/self.losshistory.loss_weights
+        self.train_state.loss_test = self.train_state.loss_test/self.losshistory.loss_weights
 
         self.train_state.update_best(self.net, self.opt)
         self.losshistory.append(
@@ -685,7 +685,12 @@ class Model(object):
             self.opt.load_state_dict(checkpoint['optimizer_state_dict'])
             self.train_state.epoch = checkpoint['epoch']
             self.train_state.step = checkpoint['epoch']
-            #loss = checkpoint['loss']
+            self.train_state.loss_train = checkpoint['train_loss']
+            self.train_state.loss_test = checkpoint['test_loss']
+
+
+
+    #loss = checkpoint['loss']
 
     def print_model(self):
         """Prints all trainable variables."""
@@ -798,6 +803,8 @@ class TrainState(Model):
                 'epoch': self.epoch,
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': opt.state_dict(),
+                'train_loss': self.loss_train,
+                'test_loss': self.loss_test,
             }, self.save_path)
         #elif self.protocol == "pickle":
         #    with open("{}-{}.pkl".format(self.save_path, self.train_state.epoch), "wb") as f:
@@ -827,8 +834,9 @@ class LossHistory(object):
         self.steps = []
         self.loss_train = []
         self.loss_test = []
-        self.metrics_test = []
+        self.metrics_test = []        
         self.loss_weights = 1
+        self.weight_history = []
 
     def set_loss_weights(self, loss_weights):
         self.loss_weights = loss_weights
