@@ -199,7 +199,7 @@ class PDE(Data):
         self.train_x_bc = None
         self.train_next_batch()
 
-    def add_anchors(self, anchors, anchors_bc):
+    def add_anchors(self, anchors):
         """Add new points for training PDE losses. The BC points will not be updated."""
         anchors = anchors.astype(config.real(np))
         if self.anchors is None:
@@ -267,8 +267,8 @@ class PDE(Data):
 
     @run_if_all_none("test_x_bc")
     def test_bc_points(self, pts):
-        np.random.shuffle(pts)
-        x_bcs = [bc.collocation_points(pts) for bc in self.bcs]
+        #np.random.shuffle(pts)
+        x_bcs = [bc.collocation_points(pts, self.anchors_bc) for bc in self.bcs]
         self.test_x_bc = (
             np.vstack(x_bcs)
             if x_bcs
