@@ -7,9 +7,7 @@
 [![PyPI Downloads](https://pepy.tech/badge/deepxde)](https://pepy.tech/project/deepxde)
 [![Conda Version](https://anaconda.org/conda-forge/deepxde/badges/version.svg)](https://anaconda.org/conda-forge/deepxde)
 [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/deepxde.svg)](https://anaconda.org/conda-forge/deepxde)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/lululxvi/deepxde/blob/master/LICENSE)
-
-[**Voting on whether we should have a Slack channel for discussion.**](https://github.com/lululxvi/deepxde/issues/371)
+[![License](https://img.shields.io/github/license/lululxvi/deepxde)](https://github.com/lululxvi/deepxde/blob/master/LICENSE)
 
 DeepXDE is a library for scientific machine learning. Use DeepXDE if you need a deep learning library that
 
@@ -22,7 +20,7 @@ DeepXDE is a library for scientific machine learning. Use DeepXDE if you need a 
 
 DeepXDE supports three tensor libraries as backends: TensorFlow 1.x (`tensorflow.compat.v1` in TensorFlow 2.x), TensorFlow 2.x, and PyTorch. For how to select one, see [Working with different backends](https://deepxde.readthedocs.io/en/latest/user/installation.html#working-with-different-backends).
 
-**Documentation**: [ReadTheDocs](https://deepxde.readthedocs.io/), [SIAM Rev.](https://doi.org/10.1137/19M1274067), [Slides](https://lululxvi.github.io/files/talks/2020SIAMMDS_MS70.pdf), [Video](https://www.youtube.com/watch?v=Wfgr1pMA9fY&list=PL1e3Jic2_DwwJQ528agJYMEpA0oMaDSA9&index=13)
+**Documentation**: [ReadTheDocs](https://deepxde.readthedocs.io/), [SIAM Rev.](https://doi.org/10.1137/19M1274067), [Slides](https://github.com/lululxvi/tutorials/blob/master/20211210_pinn/pinn.pdf), [Video](https://www.youtube.com/watch?v=Wfgr1pMA9fY&list=PL1e3Jic2_DwwJQ528agJYMEpA0oMaDSA9&index=13), [Video in Chinese](http://tianyuan.xmu.edu.cn/cn/minicourses/637.html)
 
 **Papers on algorithms**
 
@@ -55,7 +53,7 @@ All the components of DeepXDE are loosely coupled, and thus DeepXDE is well-stru
 DeepXDE requires one of the following backend-specific dependencies to be installed:
 
 - TensorFlow 1.x: [TensorFlow](https://www.tensorflow.org/)>=2.2.0
-- TensorFlow 2.x: [TensorFlow](https://www.tensorflow.org/)>=2.2.0 and [TensorFlow Probability](https://www.tensorflow.org/probability)
+- TensorFlow 2.x: [TensorFlow](https://www.tensorflow.org/)>=2.2.0 and [TensorFlow Probability](https://www.tensorflow.org/probability)>=0.10.0
 - PyTorch: [PyTorch](https://pytorch.org/)
 
 Then, you can install DeepXDE itself.
@@ -125,12 +123,14 @@ First off, thanks for taking the time to contribute!
 - **Asking questions.** To get help on how to use DeepXDE or its functionalities, you can as well open an issue.
 - **Answering questions.** If you know the answer to any question in the "Issues", you are welcomed to answer.
 
+**Slack.** The DeepXDE Slack hosts a primary audience of moderate to experienced DeepXDE users and developers for general chat, online discussions, collaboration, etc. If you need a slack invite, please send me an email.
+
 ## The Team
 
-DeepXDE was originally developed by [Lu Lu](https://lu.seas.upenn.edu) at [Brown University](https://www.brown.edu) under the supervision of Prof. [George Karniadakis](https://www.brown.edu/research/projects/crunch/george-karniadakis) from 2018 to 2020, supported by [PhILMs](https://www.pnnl.gov/computing/philms/).
+DeepXDE was originally developed by [Lu Lu](https://lu.seas.upenn.edu) under the supervision of Prof. [George Karniadakis](https://www.brown.edu/research/projects/crunch/george-karniadakis) at [Brown University](https://www.brown.edu) from 2018 to 2020, supported by [PhILMs](https://www.pnnl.gov/computing/philms).
 
-DeepXDE is currently maintained by [Lu Group](https://lu.seas.upenn.edu) at [University of Pennsylvania](https://www.upenn.edu/) with major contributions coming from several talented individuals in various forms and means. A non-exhaustive but growing list needs to mention: [Shunyuan Mao](https://github.com/smao-astro), [Zongren Zou](https://github.com/ZongrenZou).
+DeepXDE is currently maintained by [Lu Lu](https://lu.seas.upenn.edu) at [University of Pennsylvania](https://www.upenn.edu) with major contributions coming from several talented individuals in various forms and means. A non-exhaustive but growing list needs to mention: [Shunyuan Mao](https://github.com/smao-astro), [Zongren Zou](https://github.com/ZongrenZou).
 
 ## License
 
-[Apache license 2.0](https://github.com/lululxvi/deepxde/blob/master/LICENSE)
+[LGPL-2.1 License](https://github.com/lululxvi/deepxde/blob/master/LICENSE)

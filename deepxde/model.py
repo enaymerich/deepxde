@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 __all__ = ["Model", "TrainState", "LossHistory"]
 
 
@@ -19,7 +15,7 @@ from . import optimizers
 from . import utils
 from .backend import backend_name, tf, torch
 from .callbacks import CallbackList
-from hessian import funs
+#from hessian import funs
 
 class Model(object):
     """A ``Model`` trains a ``NN`` on a ``Data``.
@@ -42,15 +38,15 @@ class Model(object):
         self.losshistory = LossHistory()
         self.stop_training = False
 
-
         # Backend-dependent attributes
         self.opt = None
         # Tensor or callable
         self.outputs = None
         self.outputs_losses = None
         self.train_step = None
-
-
+        if backend_name == "tensorflow.compat.v1":
+            self.sess = None
+            self.saver = None
 
     @utils.timing
     def compile(
@@ -319,7 +315,7 @@ class Model(object):
                 #torch.cuda.empty_cache()
 
             self.net.requires_grad_()
-            
+
         return utils.to_numpy(outs)
 
     def _train_step(self, inputs, targets, auxiliary_vars):
@@ -429,7 +425,8 @@ class Model(object):
 
         print("")
         display.training_display.summary(self.train_state)
-
+        if model_save_path is not None:
+            self.save(model_save_path, verbose=1)
         return self.losshistory, self.train_state
 
     def _train_sgd(self, epochs, display_every):
@@ -554,7 +551,6 @@ class Model(object):
             self.train_state.y_train,
             self.train_state.train_aux_vars,
         )
-
         self.train_state.y_pred_test, self.train_state.loss_test = self._outputs_losses(
             False,
             self.train_state.X_test,
@@ -596,7 +592,20 @@ class Model(object):
         display.training_display(self.train_state)
 
     def predict(self, x, operator=None, callbacks=None):
-        """Generates output predictions for the input samples."""
+        """Generates predictions for the input samples. If `operator` is ``None``,
+        returns the network output, otherwise returns the output of the `operator`.
+
+        Args:
+            x: The network inputs. A Numpy array or a tuple of Numpy arrays.
+            operator: A function takes arguments (`inputs`, `outputs`) or (`inputs`,
+                `outputs`, `auxiliary_variables`) and outputs a tensor. `inputs` and
+                `outputs` are the network input and output tensors, respectively.
+                `auxiliary_variables` is the output of `auxiliary_var_function(x)`
+                in `dde.data.PDE`. `operator` is typically chosen as the PDE (used to
+                define `dde.data.PDE`) to predict the PDE residual.
+            callbacks: List of ``dde.callbacks.Callback`` instances. List of callbacks
+                to apply during prediction.
+        """
         if isinstance(x, tuple):
             x = tuple(np.array(xi, dtype=config.real(np)) for xi in x)
         else:
@@ -604,42 +613,56 @@ class Model(object):
         self.callbacks = CallbackList(callbacks=callbacks)
         self.callbacks.set_model(self)
         self.callbacks.on_predict_begin()
+
         if operator is None:
             y = self._outputs(False, x)
-        else:
-            # TODO: predict operator with auxiliary_vars
-            if backend_name == "tensorflow.compat.v1":
-                if utils.get_num_args(operator) == 2:
-                    op = operator(self.net.inputs, self.net.outputs)
-                elif utils.get_num_args(operator) == 3:
-                    op = operator(self.net.inputs, self.net.outputs, x)
-                y = self.sess.run(op, feed_dict=self.net.feed_dict(False, x))
-            elif backend_name == "tensorflow":
-                if utils.get_num_args(operator) == 2:
+            self.callbacks.on_predict_end()
+            return y
 
-                    @tf.function
-                    def op(inputs):
-                        y = self.net(inputs)
-                        return operator(inputs, y)
+        # operator is not None
+        if utils.get_num_args(operator) == 3:
+            aux_vars = self.data.auxiliary_var_fn(x).astype(config.real(np))
+        if backend_name == "tensorflow.compat.v1":
+            if utils.get_num_args(operator) == 2:
+                op = operator(self.net.inputs, self.net.outputs)
+                feed_dict = self.net.feed_dict(False, x)
+            elif utils.get_num_args(operator) == 3:
+                op = operator(
+                    self.net.inputs, self.net.outputs, self.net.auxiliary_vars
+                )
+                feed_dict = self.net.feed_dict(False, x, auxiliary_vars=aux_vars)
+            y = self.sess.run(op, feed_dict=feed_dict)
+        elif backend_name == "tensorflow":
+            if utils.get_num_args(operator) == 2:
 
-                elif utils.get_num_args(operator) == 3:
+                @tf.function
+                def op(inputs):
+                    y = self.net(inputs)
+                    return operator(inputs, y)
 
-                    @tf.function
-                    def op(inputs):
-                        y = self.net(inputs)
-                        return operator(inputs, y, x)
+            elif utils.get_num_args(operator) == 3:
 
-                y = op(x)
-                y = utils.to_numpy(y)
-            elif backend_name == "pytorch":
-                inputs = torch.as_tensor(x)
-                inputs.requires_grad_()
-                outputs = self.net(inputs)
-                if utils.get_num_args(operator) == 2:
-                    y = operator(inputs, outputs)
-                elif utils.get_num_args(operator) == 3:
-                    y = operator(inputs, outputs, x)
-                y = utils.to_numpy(y)
+                @tf.function
+                def op(inputs):
+                    y = self.net(inputs)
+                    return operator(inputs, y, aux_vars)
+
+            y = op(x)
+            y = utils.to_numpy(y)
+        elif backend_name == "pytorch":
+            self.net.eval()
+            inputs = torch.as_tensor(x)
+            inputs.requires_grad_()
+            outputs = self.net(inputs)
+            if utils.get_num_args(operator) == 2:
+                y = operator(inputs, outputs)
+            elif utils.get_num_args(operator) == 3:
+                # TODO: Pytorch backend Implementation of Auxiliary variables.
+                # y = operator(inputs, outputs, torch.as_tensor(aux_vars))
+                raise NotImplementedError(
+                    "Model.predict() with auxiliary variable hasn't been implemented for backend pytorch."
+                )
+            y = utils.to_numpy(y)
         self.callbacks.on_predict_end()
         return y
 
@@ -652,34 +675,75 @@ class Model(object):
     def state_dict(self):
         """Returns a dictionary containing all variables."""
         # TODO: backend tensorflow
-        if backend_name == "tensorflow":
-            raise NotImplementedError(
-                "state_dict hasn't been implemented for this backend."
-            )
         if backend_name == "tensorflow.compat.v1":
             destination = OrderedDict()
             variables_names = [v.name for v in tf.global_variables()]
             values = self.sess.run(variables_names)
-        if backend_name == "pytorch":
-            destination = OrderedDict()
-            variables_names = [v.name for v in self.opt.state_dict()]
-        for k, v in zip(variables_names, values):
-            destination[k] = v
-        return destination
-
-
-    def restore(self, save_path, verbose=0):
-        """Restore all variables from a disk file."""
-        # TODO: backend tensorflow
-        if backend_name == "tensorflow":
+            for k, v in zip(variables_names, values):
+                destination[k] = v
+        elif backend_name == "pytorch":
+            destination = self.net.state_dict()
+        else:
             raise NotImplementedError(
                 "state_dict hasn't been implemented for this backend."
             )
+        return destination
+
+    def save(self, save_path, protocol="backend", verbose=0):
+        """Saves all variables to a disk file.
+
+        Args:
+            save_path (string): Prefix of filenames to save the model file.
+            protocol (string): If `protocol` is "backend", save using the backend-specific method.
+                For "tensorflow.compat.v1", use `tf.train.Save <https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/Saver#attributes>`_.
+                For "pytorch", use `torch.save <https://pytorch.org/docs/stable/generated/torch.save.html>`_.
+                If `protocol` is "pickle", save using the Python pickle module.
+                Only the protocol "backend" supports ``restore()``.
+
+        Returns:
+            string. Path where model is saved.
+        """
+        # TODO: backend tensorflow
+        save_path = f"{save_path}-{self.train_state.epoch}"
+        if protocol == "pickle":
+            save_path += ".pkl"
+            with open(save_path, "wb") as f:
+                pickle.dump(self.state_dict(), f)
+        elif protocol == "backend":
+            if backend_name == "tensorflow.compat.v1":
+                save_path += ".ckpt"
+                self.saver.save(self.sess, save_path)
+            elif backend_name == "pytorch":
+                save_path += ".pt"
+                checkpoint = {
+                    "model_state_dict": self.net.state_dict(),
+                    "optimizer_state_dict": self.opt.state_dict(),
+                }
+                torch.save(checkpoint, save_path)
+            else:
+                raise NotImplementedError(
+                    "Model.save() hasn't been implemented for this backend."
+                )
+        if verbose > 0:
+            print(
+                "Epoch {}: saving model to {} ...\n".format(
+                    self.train_state.epoch, save_path
+                )
+            )
+        return save_path
+
+    def restore(self, save_path, verbose=0):
+        """Restore all variables from a disk file.
+
+        Args:
+            save_path (string): Path where model was previously saved.
+        """
+        # TODO: backend tensorflow
         if verbose > 0:
             print("Restoring model from {} ...\n".format(save_path))
         if backend_name == "tensorflow.compat.v1":
             self.saver.restore(self.sess, save_path)
-        if backend_name == "pytorch":
+        elif backend_name == "pytorch":
             checkpoint = torch.load(save_path)
             self.net.load_state_dict(checkpoint['model_state_dict'])
             self.opt.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -687,10 +751,10 @@ class Model(object):
             self.train_state.step = checkpoint['epoch']
             self.train_state.loss_train = checkpoint['train_loss']
             self.train_state.loss_test = checkpoint['test_loss']
-
-
-
-    #loss = checkpoint['loss']
+        else:
+            raise NotImplementedError(
+                "Model.restore() hasn't been implemented for this backend."
+            )
 
     def print_model(self):
         """Prints all trainable variables."""
@@ -834,7 +898,7 @@ class LossHistory(object):
         self.steps = []
         self.loss_train = []
         self.loss_test = []
-        self.metrics_test = []        
+        self.metrics_test = []
         self.loss_weights = 1
         self.weight_history = []
 

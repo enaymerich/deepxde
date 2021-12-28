@@ -1,12 +1,9 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import sys
 import time
 
 import numpy as np
 
+from . import config
 from . import gradients as grad
 from .backend import backend_name
 from .utils import list_to_str, save_animation
@@ -114,7 +111,7 @@ class ModelCheckpoint(Callback):
     """Save the model after every epoch.
 
     Args:
-        filepath (string): Path to save the model file.
+        filepath (string): Prefix of filenames to save the model file.
         verbose: Verbosity mode, 0 or 1.
         save_better_only: If True, only save a better model according to the quantity
             monitored. Model is only checked at validation step according to
@@ -142,18 +139,18 @@ class ModelCheckpoint(Callback):
         if self.save_better_only:
             current = self.model.train_state.best_loss_train
             if self.monitor_op(current, self.best):
+                save_path = self.model.save(self.filepath, verbose=0)
                 if self.verbose > 0:
                     print(
-                        "Epoch {epoch}: {} improved from {:.2e} to {:.2e}, saving model to {}-{epoch} ...\n".format(
+                        "Epoch {}: {} improved from {:.2e} to {:.2e}, saving model to {} ...\n".format(
+                            self.model.train_state.epoch,
                             self.monitor,
                             self.best,
                             current,
-                            self.filepath,
-                            epoch=self.model.train_state.epoch,
+                            save_path,
                         )
                     )
                 self.best = current
-                self.model.save(self.filepath, verbose=0)
         else:
             self.model.save(self.filepath, verbose=self.verbose)
 
@@ -389,7 +386,9 @@ class MovieDumper(Callback):
         self.filename = filename
         x1 = np.array(x1)
         x2 = np.array(x2)
-        self.x = x1 + (x2 - x1) / (num_points - 1) * np.arange(num_points)[:, None]
+        self.x = (
+            x1 + (x2 - x1) / (num_points - 1) * np.arange(num_points)[:, None]
+        ).astype(dtype=config.real(np))
         self.period = period
         self.component = component
         self.save_spectrum = save_spectrum
@@ -399,18 +398,8 @@ class MovieDumper(Callback):
         self.spectrum = []
         self.epochs_since_last_save = 0
 
-        # TODO: support other backends
-        if backend_name != "tensorflow.compat.v1":
-            raise RuntimeError(
-                "MovieDumper only supports backend tensorflow.compat.v1."
-            )
-
-    def init(self):
-        self.tf_op = self.model.net.outputs[:, self.component]
-        self.feed_dict = self.model.net.feed_dict(False, False, 2, self.x)
-
     def on_train_begin(self):
-        self.y.append(self.model.sess.run(self.tf_op, feed_dict=self.feed_dict))
+        self.y.append(self.model._outputs(False, self.x)[:, self.component])
         if self.save_spectrum:
             A = np.fft.rfft(self.y[-1])
             self.spectrum.append(np.abs(A))
