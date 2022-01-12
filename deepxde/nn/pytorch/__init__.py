@@ -1,5 +1,7 @@
 """Package for pytorch NN modules."""
 
-from .fnn import FNN, FNN_dropout
+from .deeponet import DeepONetDotProd
+from .fnn import FNN
+from .nn import NN
 
-__all__ = ["FNN"]
+__all__ = ["DeepONetDotProd", "FNN", "NN"]
