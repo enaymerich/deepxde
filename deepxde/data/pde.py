@@ -169,11 +169,11 @@ class PDE(Data):
         ]
         for i, bc in enumerate(self.bcs):
             beg, end = bcs_start[i], bcs_start[i + 1]
-            # The same BC points are used for training and testing.
+
             if training:
-                error = bc.error(self.train_x, model.net.inputs, outputs, beg, end)
+                error = bc.error(self.train_x, model.net.inputs,  outputs, beg, end, model.net.inputs)
             else:
-                error = bc.error(self.test_x_bc, model.net.inputs, outputs, beg, end)
+                error = bc.error(self.test_x_bc, model.net.inputs, outputs, beg, end, model.net.inputs)
             losses.append(loss[len(error_f) + i](bkd.zeros_like(error), error))
         return losses
 

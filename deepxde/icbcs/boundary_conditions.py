@@ -65,7 +65,7 @@ class BC(ABC):
         return bkd.sum(dydx * n, 1, keepdims=True)
 
     @abstractmethod
-    def error(self, X, inputs, outputs, beg, end):
+    def error(self, X, inputs, outputs, beg, end, aux_vars):
         """Returns the loss."""
 
 
@@ -76,8 +76,8 @@ class DirichletBC(BC):
         super(DirichletBC, self).__init__(geom, on_boundary, component, num_points)
         self.func = npfunc_range_autocache(utils.return_tensor(func))
 
-    def error(self, X, inputs, outputs, beg, end):
-        values = self.func(X, beg, end)
+    def error(self, X, inputs, outputs, beg, end, aux_vars=None):
+        values = self.func(X, aux_vars, beg, end)
         if bkd.ndim(values) > 0 and bkd.shape(values)[1] != 1:
             raise RuntimeError(
                 "DirichletBC func should return an array of shape N by 1 for a single"
@@ -93,8 +93,8 @@ class NeumannBC(BC):
         super(NeumannBC, self).__init__(geom, on_boundary, component, num_points)
         self.func = npfunc_range_autocache(utils.return_tensor(func))
 
-    def error(self, X, inputs, outputs, beg, end):
-        values = self.func(X, beg, end)
+    def error(self, X, inputs, outputs, beg, end, aux_vars=None):
+        values = self.func(X, aux_vars, beg, end)
         return self.normal_derivative(X, inputs, outputs, beg, end) - values
 
 
@@ -105,7 +105,7 @@ class RobinBC(BC):
         super(RobinBC, self).__init__(geom, on_boundary, component, num_points)
         self.func = func
 
-    def error(self, X, inputs, outputs, beg, end):
+    def error(self, X, inputs, outputs, beg, end, aux_vars=None):
         return self.normal_derivative(X, inputs, outputs, beg, end) - self.func(
             X[beg:end], outputs[beg:end]
         )
@@ -128,7 +128,7 @@ class PeriodicBC(BC):
         X2 = self.geom.periodic_point(X1, self.component_x)
         return np.vstack((X1, X2))
 
-    def error(self, X, inputs, outputs, beg, end):
+    def error(self, X, inputs, outputs, beg, end, aux_vars=None):
         mid = beg + (end - beg) // 2
         if self.derivative_order == 0:
             yleft = outputs[beg:mid, self.component : self.component + 1]
@@ -156,7 +156,7 @@ class OperatorBC(BC):
         super(OperatorBC, self).__init__(geom, on_boundary, 0, num_points)
         self.func = func
 
-    def error(self, X, inputs, outputs, beg, end):
+    def error(self, X, inputs, outputs, beg, end, aux_vars=None):
         return self.func(inputs, outputs, X)[beg:end]
 
 
@@ -182,7 +182,7 @@ class PointSetBC(object):
     def collocation_points(self, X, anchors_bc=None):
         return self.points
 
-    def error(self, X, inputs, outputs, beg, end):
+    def error(self, X, inputs, outputs, beg, end, aux_vars=None):
         return outputs[beg:end, self.component : self.component + 1] - self.values
 
 
@@ -214,14 +214,22 @@ def npfunc_range_autocache(func):
     cache = {}
 
     @wraps(func)
-    def wrapper_nocache(X, beg, end):
-        return func(X[beg:end])
+    def wrapper_nocache(X, aux_vars, beg, end):
+        if utils.get_num_args(func) == 1:
+            return func(X[beg:end])
+        elif utils.get_num_args(func) == 2:
+            return func(X[beg:end], aux_vars[beg:end])
 
     @wraps(func)
-    def wrapper_cache(X, beg, end):
-        key = (hash(sum(X[-2:,:].flatten()).tolist()), beg, end)
-        if key not in cache:
-            cache[key] = func(X[beg:end])
+    def wrapper_cache(X, aux_vars, beg, end):
+        if utils.get_num_args(func) == 1:
+            key = (hash(sum(X[-2:,:].flatten()).tolist()), beg, end)
+            if key not in cache:
+                cache[key] = func(X[beg:end])
+        elif utils.get_num_args(func) == 2:
+            key = (hash(sum(np.concatenate((aux_vars[-2:, :], X[-2:, :]), 1).flatten()).tolist()), beg, end)
+            if key not in cache:
+                cache[key] = func(X[beg:end], aux_vars[beg:end])
         return cache[key]
 
     if backend_name in ["tensorflow.compat.v1", "tensorflow"]:

@@ -248,7 +248,7 @@ class Model(object):
             trainable_variables, self.opt_name, learning_rate=lr, decay=decay
         )
 
-        def train_step(inputs, targets):
+        def train_step(inputs, targets, aux_vars=None):
             def closure():
                 losses = outputs_losses(True, inputs, targets)[1]
                 total_loss = torch.sum(losses)
