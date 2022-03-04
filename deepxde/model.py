@@ -234,6 +234,9 @@ class Model(object):
             # Weighted losses
             if self.losshistory.loss_weights is not None:
                 losses *= torch.as_tensor(self.losshistory.loss_weights)/loss_norm
+            else:
+                losses /= loss_norm
+                
             # Clear cached Jacobians and Hessians.
             grad.clear()
             return outputs_, losses
@@ -264,7 +267,10 @@ class Model(object):
         self.outputs = outputs
         self.outputs_losses = outputs_losses
         self.train_step = train_step
-        self.losshistory.set_loss_weights(np.asarray(loss_weights))
+        if loss_weights is not None:
+            self.losshistory.set_loss_weights(np.asarray(loss_weights))
+        else:
+            self.losshistory.set_loss_weights(None)
 
     def _outputs(self, training, inputs):
         if backend_name == "tensorflow.compat.v1":
@@ -569,8 +575,9 @@ class Model(object):
                 m(self.train_state.y_test, self.train_state.y_pred_test)
                 for m in self.metrics
             ]
-        self.train_state.loss_train = self.train_state.loss_train/self.losshistory.loss_weights
-        self.train_state.loss_test = self.train_state.loss_test/self.losshistory.loss_weights
+        if self.losshistory.loss_weights is not None:
+            self.train_state.loss_train = self.train_state.loss_train/self.losshistory.loss_weights
+            self.train_state.loss_test = self.train_state.loss_test/self.losshistory.loss_weights
 
         self.train_state.update_best(self.net, self.opt)
         self.losshistory.append(

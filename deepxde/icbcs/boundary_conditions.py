@@ -59,9 +59,9 @@ class BC(ABC):
         X = np.vstack((X, self.filter(anchors_bc))) if anchors_bc is not None else X
         return self.filter(X)
 
-    def normal_derivative(self, X, inputs, outputs, beg, end):
+    def normal_derivative(self, X, inputs, outputs, beg, end, aux_vars=None):
         dydx = grad.jacobian(outputs, inputs, i=self.component, j=None)[beg:end]
-        n = self.boundary_normal(X, beg, end)
+        n = self.boundary_normal(X, aux_vars, beg, end)
         return bkd.sum(dydx * n, 1, keepdims=True)
 
     @abstractmethod
