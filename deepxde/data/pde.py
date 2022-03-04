@@ -171,9 +171,9 @@ class PDE(Data):
             beg, end = bcs_start[i], bcs_start[i + 1]
 
             if training:
-                error = bc.error(self.train_x, model.net.inputs,  outputs, beg, end, model.net.inputs)
+                error = bc.error(self.train_x, model.net.inputs,  outputs, beg, end)
             else:
-                error = bc.error(self.test_x_bc, model.net.inputs, outputs, beg, end, model.net.inputs)
+                error = bc.error(self.test_x_bc, model.net.inputs, outputs, beg, end)
             losses.append(loss[len(error_f) + i](bkd.zeros_like(error), error))
         return losses
 
@@ -295,8 +295,14 @@ class PDE(Data):
                 tmp = self.geom.random_boundary_points(
                     self.num_boundary, random=self.train_distribution, seed=self.seed
                 )
-        tmp = self.test_bc_points(tmp)
+        if self.exclusions is not None:
 
+            def is_not_excluded(x):
+                return not np.any([np.allclose(x, y) for y in self.exclusions])
+
+            tmp = np.array(list(filter(is_not_excluded, tmp)))
+
+        tmp = self.test_bc_points(tmp)
         return np.vstack((tmp,x))
 
     @run_if_all_none("test_x_bc")
