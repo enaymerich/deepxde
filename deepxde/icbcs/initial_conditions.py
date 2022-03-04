@@ -35,8 +35,8 @@ class IC(object):
         return X
 
 
-    def error(self, X, inputs, outputs, beg, end):
-        values = self.func(X, beg, end)
+    def error(self, X, inputs, outputs, beg, end, aux_vars=None):
+        values = self.func(X, aux_vars, beg, end)
         if bkd.ndim(values) > 0 and bkd.shape(values)[1] != 1:
             raise RuntimeError(
                 "IC func should return an array of shape N by 1 for a single component."
