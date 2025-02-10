@@ -10,11 +10,11 @@ class Data(abc.ABC):
 
     def losses_train(self, targets, outputs, loss_fn, inputs, model, aux=None):
         """Return a list of losses for training dataset, i.e., constraints."""
-        return self.losses(targets, outputs, loss_fn, inputs, model, aux=aux)
+        return self.losses(1,targets, outputs, loss_fn, inputs, model, aux=aux)
 
     def losses_test(self, targets, outputs, loss_fn, inputs, model, aux=None):
         """Return a list of losses for test dataset, i.e., constraints."""
-        return self.losses(targets, outputs, loss_fn, inputs, model, aux=aux)
+        return self.losses(0, targets, outputs, loss_fn, inputs, model, aux=aux)
 
     @abc.abstractmethod
     def train_next_batch(self, batch_size=None):

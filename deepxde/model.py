@@ -66,6 +66,7 @@ class Model:
         loss_weights=None,
         external_trainable_variables=None,
         verbose=1,
+        loss_norm=1,
     ):
         """Configures the model for training.
 
@@ -141,7 +142,7 @@ class Model:
         elif backend_name == "tensorflow":
             self._compile_tensorflow(lr, loss_fn, decay)
         elif backend_name == "pytorch":
-            self._compile_pytorch(lr, loss_fn, decay)
+            self._compile_pytorch(lr, loss_fn, decay, loss_weights, loss_norm)
         elif backend_name == "jax":
             self._compile_jax(lr, loss_fn, decay)
         elif backend_name == "paddle":
@@ -275,7 +276,7 @@ class Model:
             else train_step_tfp
         )
 
-    def _compile_pytorch(self, lr, loss_fn, decay):
+    def _compile_pytorch(self, lr, loss_fn, decay, loss_weights, loss_norm):
         """pytorch"""
 
         def outputs(training, inputs):
@@ -316,7 +317,9 @@ class Model:
             losses = torch.stack(losses)
             # Weighted losses
             if self.loss_weights is not None:
-                losses *= torch.as_tensor(self.loss_weights)
+                losses *= torch.as_tensor(self.loss_weights)/loss_norm
+            else:
+                losses /=loss_norm
             # Clear cached Jacobians and Hessians.
             grad.clear()
             return outputs_, losses
@@ -601,14 +604,18 @@ class Model:
     @utils.timing
     def train(
         self,
+        epochs=None,
         iterations=None,
         batch_size=None,
         display_every=1000,
+        save_every=1000,
+        Tensorboard = False,
+        logname = None,
+        loss_names = None,
         disregard_previous_best=False,
         callbacks=None,
         model_restore_path=None,
         model_save_path=None,
-        epochs=None,
         verbose=1,
     ):
         """Trains the model.
@@ -663,9 +670,25 @@ class Model:
 
         if verbose > 0 and config.rank == 0:
             print("Training model...\n")
+
+        self.train_state.save_path = model_save_path
+        
+        if Tensorboard:
+            if backend_name == "pytorch":
+                from torch.utils.tensorboard import SummaryWriter
+                if logname is not None:
+                    self.train_state.train_writer = SummaryWriter('runs/'+logname+'_train')
+                    self.train_state.test_writer = SummaryWriter('runs/'+logname+'_test')
+                else:
+                    self.train_state.train_writer = SummaryWriter()
+                    self.train_state.test_writer = SummaryWriter()
+                self.train_state.loss_names = loss_names
+        self.train_state.save_every=save_every
+                
         self.stop_training = False
         self.train_state.set_data_train(*self.data.train_next_batch(self.batch_size))
         self.train_state.set_data_test(*self.data.test())
+        self.train_state.Tensorboard = Tensorboard
         self._test(verbose=verbose)
         self.callbacks.on_train_begin()
         if optimizers.is_external_optimizer(self.opt_name):
@@ -684,6 +707,7 @@ class Model:
             if iterations is None:
                 raise ValueError("No iterations for {}.".format(self.opt_name))
             self._train_sgd(iterations, display_every, verbose=verbose)
+
         self.callbacks.on_train_end()
 
         if verbose > 0 and config.rank == 0:
@@ -883,15 +907,24 @@ class Model:
                 m(self.train_state.y_test, self.train_state.y_pred_test)
                 for m in self.metrics
             ]
-
-        self.train_state.update_best()
+            
+        self.train_state.update_best(self.net, self.opt)
         self.losshistory.append(
             self.train_state.step,
             self.train_state.loss_train,
             self.train_state.loss_test,
             self.train_state.metrics_test,
         )
-
+        if (self.train_state.Tensorboard is not None) and (self.train_state.loss_names is not None):
+            if backend_name == 'pytorch':
+                for k in range(len(self.train_state.loss_names)):
+                    self.train_state.train_writer.add_scalar(self.train_state.loss_names[k],
+                                                       self.train_state.loss_train[k], self.train_state.step)
+                    self.train_state.test_writer.add_scalar(self.train_state.loss_names[k],
+                                                       self.train_state.loss_test[k], self.train_state.step)
+                self.train_state.train_writer.add_scalar('Total loss', sum(self.train_state.loss_train), self.train_state.step)
+                self.train_state.test_writer.add_scalar('Total loss', sum(self.train_state.loss_test), self.train_state.step)
+        
         if (
             np.isnan(self.train_state.loss_train).any()
             or np.isnan(self.train_state.loss_test).any()
@@ -1179,6 +1212,17 @@ class TrainState:
         self.best_y = None
         self.best_ystd = None
         self.best_metrics = None
+        if backend_name == "tensorflow.compat.v1":
+            self.train_state.sess = None
+            self.train_state.saver = None
+        self.save_path = None
+        self.protocol = None
+        self.save_every = None
+        self.train_writer = None
+        self.test_writer = None
+        self.Tensorboard = None
+        self.loss_names = None
+        
 
     def set_data_train(self, X_train, y_train, train_aux_vars=None):
         self.X_train = X_train
@@ -1190,17 +1234,76 @@ class TrainState:
         self.y_test = y_test
         self.test_aux_vars = test_aux_vars
 
-    def update_best(self):
-        if self.best_loss_train > np.sum(self.loss_train):
+    def update_best(self, net, opt):
+        if self.best_loss_test > np.sum(self.loss_test):
             self.best_step = self.step
             self.best_loss_train = np.sum(self.loss_train)
             self.best_loss_test = np.sum(self.loss_test)
             self.best_y = self.y_pred_test
             self.best_ystd = self.y_std_test
             self.best_metrics = self.metrics_test
+            if (self.save_path is not None): 
+                if (self.step % self.save_every == 0) or (self.epoch + 1 == self.epochs):
+                    self.save(net, opt, verbose=1)
+
+            
 
     def disregard_best(self):
         self.best_loss_train = np.inf
+        
+    def save(self, net, opt, protocol="backend", verbose=0):
+        """Saves all variables to a disk file.
+
+        Args:
+            protocol (string): If `protocol` is "backend", save using the
+                backend-specific method.
+
+                - For "tensorflow.compat.v1", use `tf.train.Save <https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/Saver#attributes>`_.
+                - For "tensorflow", use `tf.keras.Model.save_weights <https://www.tensorflow.org/api_docs/python/tf/keras/Model#save_weights>`_.
+                - For "pytorch", use `torch.save <https://pytorch.org/docs/stable/generated/torch.save.html>`_.
+                - For "paddle", use `paddle.save <https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/save_en.html>`_.
+
+                If `protocol` is "pickle", save using the Python pickle module. Only the
+                protocol "backend" supports ``restore()``.
+
+        Returns:
+            string: Path where model is saved.
+        """
+        save_path = f"{self.save_path}"
+        if protocol == "pickle":
+            with open(save_path, "wb") as f:
+                pickle.dump(self.state_dict(), f)
+        elif protocol == "backend":
+            if backend_name == "tensorflow.compat.v1":
+                self.saver.save(self.sess, save_path)
+            elif backend_name == "tensorflow":
+                net.save_weights(save_path)
+            elif backend_name == "pytorch":
+                checkpoint = {
+                    'epoch': self.epoch,
+                    'model_state_dict': net.state_dict(),
+                    'optimizer_state_dict': opt.state_dict(),
+                    'train_loss': self.loss_train,
+                    'test_loss': self.loss_test,
+                }
+                torch.save(checkpoint, save_path)
+            elif backend_name == "paddle":
+                checkpoint = {
+                    "model": self.net.state_dict(),
+                    "opt": self.opt.state_dict(),
+                }
+                paddle.save(checkpoint, save_path)
+            else:
+                raise NotImplementedError(
+                    "Model.save() hasn't been implemented for this backend."
+                )
+        if verbose > 0:
+            print(
+                "Epoch {}: saving model to {}-{} ...\n".format(
+                    self.epoch, self.save_path, self.epoch
+                )
+            )
+        return save_path
 
 
 class LossHistory:
@@ -1209,7 +1312,10 @@ class LossHistory:
         self.loss_train = []
         self.loss_test = []
         self.metrics_test = []
-
+        self.loss_weights = 1
+        self.weight_history = []
+        
+        
     def append(self, step, loss_train, loss_test, metrics_test):
         self.steps.append(step)
         self.loss_train.append(loss_train)
@@ -1219,3 +1325,4 @@ class LossHistory:
             metrics_test = self.metrics_test[-1]
         self.loss_test.append(loss_test)
         self.metrics_test.append(metrics_test)
+

@@ -36,7 +36,7 @@ class GeometryXTime:
         _n = self.geometry.boundary_normal(x[:, :-1])
         return np.hstack([_n, np.zeros((len(_n), 1))])
 
-    def uniform_points(self, n, boundary=True):
+    def uniform_points(self, n, boundary=True,seed=None):
         """Uniform points on the spatio-temporal domain.
 
         Geometry volume ~ bbox.
@@ -69,6 +69,12 @@ class GeometryXTime:
         for ti in t:
             xt.append(np.hstack((x, np.full([nx, 1], ti[0]))))
         xt = np.vstack(xt)
+        extra_points = n-len(xt)
+
+        if n > len(xt):
+            y = self.uniform_points(self, extra_points, boundary=boundary, seed=seed)
+            xt = np.vstack((xt, y))
+        xt = xt[0:n,:]
         if n != len(xt):
             print(
                 "Warning: {} points required, but {} points sampled.".format(n, len(xt))
@@ -134,6 +140,11 @@ class GeometryXTime:
         for ti in t:
             xt.append(np.hstack((x, np.full([nx, 1], ti))))
         xt = np.vstack(xt)
+        extra_points = n-len(xt)
+        if n > len(xt):
+            y = self.uniform_boundary_points(self, extra_points)
+            xt = np.vstack((xt, y))
+        xt = xt[:n,:]
         if n != len(xt):
             print(
                 "Warning: {} points required, but {} points sampled.".format(n, len(xt))
@@ -149,10 +160,11 @@ class GeometryXTime:
     def uniform_initial_points(self, n):
         x = self.geometry.uniform_points(n, True)
         t = self.timedomain.t0
-        if n != len(x):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(x))
-            )
+        extra_points = abs(len(x) - n)
+        if n > len(x):
+            y = self.uniform_initial_points(self, extra_points)
+            x = np.vstack((x, y))
+        x = x[0:n]
         return np.hstack((x, np.full([len(x), 1], t, dtype=config.real(np))))
 
     def random_initial_points(self, n, random="pseudo"):

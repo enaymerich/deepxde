@@ -35,12 +35,13 @@ class BC(ABC):
         component: The output component satisfying this BC.
     """
 
-    def __init__(self, geom, on_boundary, component):
+    def __init__(self, geom, on_boundary, component, num_points):
         self.geom = geom
         self.on_boundary = lambda x, on: np.array(
             [on_boundary(x[i], on[i]) for i in range(len(x))]
         )
         self.component = component
+        self.points = num_points
 
         self.boundary_normal = npfunc_range_autocache(
             utils.return_tensor(self.geom.boundary_normal)
@@ -49,9 +50,18 @@ class BC(ABC):
     def filter(self, X):
         return X[self.on_boundary(X, self.geom.on_boundary(X))]
 
-    def collocation_points(self, X):
+    def collocation_points(self, X,anchors_bc=None):
+        X = self.filter(X)
+        if len(X) > self.points:
+            X = X[0:self.points]
+        elif len(X) < self.points:
+            print(
+                "Warning: {} points required, but {} points sampled. ".format(self.points, len(X)) +
+                "This may cause error if resampling"
+            )
+        X = np.vstack((X, self.filter(anchors_bc))) if anchors_bc is not None else X
         return self.filter(X)
-
+    
     def normal_derivative(self, X, inputs, outputs, beg, end):
         dydx = grad.jacobian(outputs, inputs, i=self.component, j=None)[beg:end]
         n = self.boundary_normal(X, beg, end, None)
@@ -67,8 +77,8 @@ class BC(ABC):
 class DirichletBC(BC):
     """Dirichlet boundary conditions: y(x) = func(x)."""
 
-    def __init__(self, geom, func, on_boundary, component=0):
-        super().__init__(geom, on_boundary, component)
+    def __init__(self, geom, func, on_boundary, component=0, num_points=10):
+        super().__init__(geom, on_boundary, component, num_points)
         self.func = npfunc_range_autocache(utils.return_tensor(func))
 
     def error(self, X, inputs, outputs, beg, end, aux_var=None):
@@ -84,8 +94,8 @@ class DirichletBC(BC):
 class NeumannBC(BC):
     """Neumann boundary conditions: dy/dn(x) = func(x)."""
 
-    def __init__(self, geom, func, on_boundary, component=0):
-        super().__init__(geom, on_boundary, component)
+    def __init__(self, geom, func, on_boundary, component=0,num_points=10):
+        super().__init__(geom, on_boundary, component,num_points)
         self.func = npfunc_range_autocache(utils.return_tensor(func))
 
     def error(self, X, inputs, outputs, beg, end, aux_var=None):
@@ -96,8 +106,8 @@ class NeumannBC(BC):
 class RobinBC(BC):
     """Robin boundary conditions: dy/dn(x) = func(x, y)."""
 
-    def __init__(self, geom, func, on_boundary, component=0):
-        super().__init__(geom, on_boundary, component)
+    def __init__(self, geom, func, on_boundary, component=0, num_points=10):
+        super().__init__(geom, on_boundary, component, num_points)
         self.func = func
 
     def error(self, X, inputs, outputs, beg, end, aux_var=None):
@@ -109,8 +119,8 @@ class RobinBC(BC):
 class PeriodicBC(BC):
     """Periodic boundary conditions on component_x."""
 
-    def __init__(self, geom, component_x, on_boundary, derivative_order=0, component=0):
-        super().__init__(geom, on_boundary, component)
+    def __init__(self, geom, component_x, on_boundary, derivative_order=0, component=0, num_points=10):
+        super().__init__(geom, on_boundary, component, num_points)
         self.component_x = component_x
         self.derivative_order = derivative_order
         if derivative_order > 1:
@@ -118,7 +128,7 @@ class PeriodicBC(BC):
                 "PeriodicBC only supports derivative_order 0 or 1."
             )
 
-    def collocation_points(self, X):
+    def collocation_points(self, X,anchors_bc=None):
         X1 = self.filter(X)
         X2 = self.geom.periodic_point(X1, self.component_x)
         return np.vstack((X1, X2))
@@ -154,8 +164,8 @@ class OperatorBC(BC):
         which cannot be fixed in an easy way for all backends.
     """
 
-    def __init__(self, geom, func, on_boundary):
-        super().__init__(geom, on_boundary, 0)
+    def __init__(self, geom, func, on_boundary, num_points=10):
+        super().__init__(geom, on_boundary, 0, num_points)
         self.func = func
 
     def error(self, X, inputs, outputs, beg, end, aux_var=None):
@@ -204,7 +214,7 @@ class PointSetBC:
     def __len__(self):
         return self.points.shape[0]
 
-    def collocation_points(self, X):
+    def collocation_points(self, X,anchors_bc=None):
         if self.batch_size is not None:
             self.batch_indices = self.batch_sampler.get_next(self.batch_size)
             return self.points[self.batch_indices]
@@ -257,7 +267,7 @@ class PointSetOperatorBC:
         self.values = bkd.as_tensor(values, dtype=config.real(bkd.lib))
         self.func = func
 
-    def collocation_points(self, X):
+    def collocation_points(self, X,anchors_bc=None):
         return self.points
 
     def error(self, X, inputs, outputs, beg, end, aux_var=None):
@@ -306,7 +316,7 @@ class Interface2DBC:
             utils.return_tensor(self.geom.boundary_normal)
         )
 
-    def collocation_points(self, X):
+    def collocation_points(self, X,anchors_bc=None):
         on_boundary = self.geom.on_boundary(X)
         X1 = X[self.on_boundary1(X, on_boundary)]
         X2 = X[self.on_boundary2(X, on_boundary)]

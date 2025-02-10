@@ -75,10 +75,11 @@ class Hypercube(Geometry):
                     )[1:]
                 )
         x = np.array(list(itertools.product(*xi)))
-        if n != len(x):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(x))
-            )
+        extra_points = n-len(x)
+        if n > len(x):
+            y = self.uniform_boundary_points(self, extra_points)
+            x = np.vstack((x, y))
+        x = x[:n,:]
         return x
 
     def uniform_boundary_points(self, n):
@@ -104,12 +105,11 @@ class Hypercube(Geometry):
                 face_points = np.array(list(itertools.product(*xi)))
                 points.append(face_points)
         points = np.vstack(points)
-        if n != len(points):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(
-                    n, len(points)
-                )
-            )
+        extra_points = n-len(points)
+        if n > len(points):
+            y = self.uniform_boundary_points(self, extra_points)
+            points = np.vstack((points, y))
+        points = points[:n,:]
         return points
 
     def random_points(self, n, random="pseudo"):

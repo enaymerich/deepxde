@@ -241,10 +241,11 @@ class Rectangle(Hypercube):
             )
         )
         x = np.vstack((xbot, yrig, xtop, ylef))
-        if n != len(x):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(x))
-            )
+        extra_points = n-len(x)
+        if n > len(x):
+            y = self.uniform_boundary_points(self, extra_points)
+            x = np.vstack((x, y))[:n]
+        x = x[: n,:]
         return x
 
     def random_boundary_points(self, n, random="pseudo"):
