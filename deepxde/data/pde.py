@@ -92,6 +92,9 @@ class PDE(Data):
         self.pde = pde
         self.bcs = bcs if isinstance(bcs, (list, tuple)) else [bcs]
         self.seed = seed
+        if not(seed==None):
+            config.random_seed=seed
+            np.random.seed(seed)
         self.num_domain = num_domain
         self.num_boundary = num_boundary
         if train_distribution not in [
@@ -436,6 +439,7 @@ class TimePDE(PDE):
                     return not np.any([np.allclose(x, y) for y in self.exclusions])
 
                 tmp = np.array(list(filter(is_not_excluded, tmp)))
+                X = np.array(list(filter(is_not_excluded, X)))
             X = np.vstack((tmp, X))
         self.train_x_all = X
         return X
@@ -465,6 +469,13 @@ class TimePDE(PDE):
                 )
             tmp = np.vstack((tmp_2,tmp))
         tmp = self.test_bc_points(tmp)
+        if self.exclusions is not None:
+
+            def is_not_excluded(x):
+                return not np.any([np.allclose(x, y) for y in self.exclusions])
+
+            tmp = np.array(list(filter(is_not_excluded, tmp)))
+            x = np.array(list(filter(is_not_excluded, x)))
         
         return np.float32(np.vstack((tmp,x)))
     
