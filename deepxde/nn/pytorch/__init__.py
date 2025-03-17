@@ -4,6 +4,7 @@ __all__ = [
     "DeepONet",
     "DeepONetCartesianProd",
     "FNN",
+    "FNNaux",
     "MIONetCartesianProd",
     "NN",
     "PFNN",
@@ -13,5 +14,5 @@ __all__ = [
 
 from .deeponet import DeepONet, DeepONetCartesianProd, PODDeepONet
 from .mionet import MIONetCartesianProd, PODMIONet
-from .fnn import FNN, PFNN
+from .fnn import FNN, PFNN, FNNaux
 from .nn import NN

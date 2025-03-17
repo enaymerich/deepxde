@@ -27,8 +27,8 @@ def pseudorandom(n_samples, dimension):
     """Pseudo random."""
     # If random seed is set, then the rng based code always returns the same random
     # number, which may not be what we expect.
-    # rng = np.random.default_rng(config.random_seed)
-    # return rng.random(size=(n_samples, dimension), dtype=config.real(np))
+    #rng = np.random.default_rng(config.random_seed)
+    #return rng.random(size=(n_samples, dimension), dtype=config.real(np))
     return np.random.random(size=(n_samples, dimension)).astype(config.real(np))
 
 
