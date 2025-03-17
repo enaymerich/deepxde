@@ -211,9 +211,9 @@ class PDE(Data):
         for i, bc in enumerate(self.bcs):
             beg, end = bcs_start[i], bcs_start[i + 1]
             if training:
-                error = bc.error(self.train_x, inputs,  outputs, beg, end)
+                error = bc.error(self.train_x, inputs,  outputs, beg, end, model.net.auxiliary_vars)
             else:
-                error = bc.error(self.test_x, inputs, outputs, beg, end)
+                error = bc.error(self.test_x, inputs, outputs, beg, end, model.net.auxiliary_vars)
             #error = bc.error(self.train_x, inputs, outputs, beg, end)
             losses.append(loss_fn[len(error_f) + i](bkd.zeros_like(error), error))
         return losses

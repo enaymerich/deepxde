@@ -107,7 +107,7 @@ class Hypercube(Geometry):
         points = np.vstack(points)
         extra_points = n-len(points)
         if n > len(points):
-            y = self.uniform_boundary_points(self, extra_points)
+            y = self.uniform_boundary_points(extra_points)
             points = np.vstack((points, y))
         points = points[:n,:]
         return points
