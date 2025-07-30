@@ -297,6 +297,7 @@ class Model:
             self.net.auxiliary_vars = None
             if auxiliary_vars is not None:
                 self.net.auxiliary_vars = torch.as_tensor(auxiliary_vars)
+                self.net.auxiliary_vars.requires_grad_()
             self.net.train(mode=training)
             if isinstance(inputs, tuple):
                 inputs = tuple(

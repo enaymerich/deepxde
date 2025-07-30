@@ -229,3 +229,4 @@ def set_parallel_scaling(scaling_mode):
     """
     global parallel_scaling
     parallel_scaling = scaling_mode
+

@@ -5,7 +5,8 @@ from .. import backend as bkd
 from .. import config
 from ..backend import backend_name
 from ..utils import get_num_args, run_if_all_none, mpi_scatter_from_rank0
-
+from pandas import DataFrame
+import os
 
 class PDE(Data):
     """ODE or time-independent PDE solver.
@@ -87,6 +88,8 @@ class PDE(Data):
         num_test=None,
         auxiliary_var_function=None,
         seed=None,
+        save_points=False,
+        save_points_file = None,        
     ):
         self.geom = geometry
         self.pde = pde
@@ -156,12 +159,14 @@ class PDE(Data):
         self.train_x_bc = None
         self.test_x_bc = None
         self.num_bcs = None
-
+        self.save_points=save_points
+        self.save_points_file = save_points_file
+        
         # these include both BC and PDE points
         self.train_x, self.train_y = None, None
         self.test_x, self.test_y = None, None
         self.train_aux_vars, self.test_aux_vars = None, None
-
+        
         self.train_next_batch()
         self.test()
 
@@ -221,7 +226,9 @@ class PDE(Data):
     @run_if_all_none("train_x", "train_y", "train_aux_vars")
     def train_next_batch(self, batch_size=None):
         self.train_x_all = self.train_points()
+        X = self.train_x_all[-self.num_domain:]
         self.bc_points()  # Generate self.num_bcs and self.train_x_bc
+        X_bound = self.train_x_bc
         if self.bcs and config.hvd is not None:
             num_bcs = np.array(self.num_bcs)
             config.comm.Bcast(num_bcs, root=0)
@@ -242,6 +249,24 @@ class PDE(Data):
             self.train_aux_vars = self.auxiliary_var_fn(self.train_x).astype(
                 config.real(np)
             )
+        Aux_vars = self.train_aux_vars
+        ## Saving Points
+        if self.save_points:
+            # Controllare se il file esiste e caricare i dati esistenti, altrimenti inizializzarlo
+            file_path = self.save_points_file
+            if os.path.exists(file_path):
+                existing_data = np.load(file_path, allow_pickle=True)
+            else:
+                existing_data = np.empty((0, 3), dtype=object)  # Inizializza array vuoto
+            new_data = np.array([X, X_bound,Aux_vars], dtype=object)
+            all_data = np.vstack((existing_data, new_data))
+            if ".npy" in file_path:
+                
+                np.save(file_path, all_data)
+            else:
+                df = DataFrame(all_data, columns=["X", "X_bound","Aux_vars"])
+                csv_path = file_path + ".csv"
+                df.to_csv(csv_path, index=False)
         return self.train_x, self.train_y, self.train_aux_vars
 
     @run_if_all_none("test_x", "test_y", "test_aux_vars")
@@ -259,6 +284,8 @@ class PDE(Data):
 
     def resample_train_points(self, pde_points=True, bc_points=True):
         """Resample the training points for PDE and/or BC."""
+        if config.random_seed is not None:
+            config.set_random_seed(config.random_seed+1)
         if pde_points:
             self.train_x_all = None
         if bc_points:
@@ -403,7 +430,9 @@ class TimePDE(PDE):
         solution=None,
         num_test=None,
         auxiliary_var_function=None,
-        seed=None
+        seed=None,
+        save_points=False,
+        save_points_file = None,
     ):
         self.num_initial = num_initial
         super().__init__(
@@ -420,7 +449,9 @@ class TimePDE(PDE):
             solution=solution,
             num_test=num_test,
             auxiliary_var_function=auxiliary_var_function,
-            seed=seed
+            seed=seed,
+            save_points=save_points,
+            save_points_file = save_points_file,
         )
 
     @run_if_all_none("train_x_all")
