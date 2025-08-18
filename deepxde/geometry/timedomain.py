@@ -21,10 +21,12 @@ class TimeDomain(Interval):
 
 
 class GeometryXTime:
-    def __init__(self, geometry, timedomain):
+    def __init__(self, geometry, timedomain,timescale=1):
         self.geometry = geometry
         self.timedomain = timedomain
         self.dim = geometry.dim + timedomain.dim
+        self.timescale=timescale
+        
 
     def on_boundary(self, x):
         return self.geometry.on_boundary(x[:, :-1])
@@ -74,11 +76,11 @@ class GeometryXTime:
         if n > len(xt):
             y = self.uniform_points(self, extra_points, boundary=boundary, seed=seed)
             xt = np.vstack((xt, y))
-        xt = xt[0:n,:]
-        if n != len(xt):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(xt))
-            )
+        # xt = xt[0:n,:]
+        # if n != len(xt):
+        #     print(
+        #         "Warning: {} points required, but {} points sampled.".format(n, len(xt))
+        #     )
         return xt
 
     def random_points(self, n, random="pseudo"):
@@ -125,7 +127,7 @@ class GeometryXTime:
                     ),
                 )
             )
-            nx = int((n * s / self.timedomain.diam) ** 0.5)
+            nx = int(((n * s / self.timedomain.diam) ** 0.5)/self.timescale)
         nt = int(np.ceil(n / nx))
         x = self.geometry.uniform_boundary_points(nx)
         nx = len(x)
@@ -144,11 +146,11 @@ class GeometryXTime:
         if n > len(xt):
             y = self.uniform_boundary_points(self, extra_points)
             xt = np.vstack((xt, y))
-        xt = xt[:n,:]
-        if n != len(xt):
-            print(
-                "Warning: {} points required, but {} points sampled.".format(n, len(xt))
-            )
+        # xt = xt[:n,:]
+        # if n != len(xt):
+        #     print(
+        #         "Warning: {} points required, but {} points sampled.".format(n, len(xt))
+        #     )
         return xt
 
     def random_boundary_points(self, n, random="pseudo"):

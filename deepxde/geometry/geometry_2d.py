@@ -245,14 +245,14 @@ class Rectangle(Hypercube):
         if n > len(x):
             y = self.uniform_boundary_points(self, extra_points)
             x = np.vstack((x, y))[:n]
-        x = x[: n,:]
+        x = x[:n,:]
         return x
 
     def random_boundary_points(self, n, random="pseudo", seed=None):
         l1 = self.xmax[0] - self.xmin[0]
         l2 = l1 + self.xmax[1] - self.xmin[1]
         l3 = l2 + l1
-        u = np.ravel(sample(n + 2, 1, random)) 
+        u = np.ravel(sample(n + 10, 1, random)) 
         # Remove the possible points very close to the corners
         u = u[np.logical_not(isclose(u, l1 / self.perimeter))]
         u = u[np.logical_not(isclose(u, l3 / self.perimeter))]
@@ -270,6 +270,7 @@ class Rectangle(Hypercube):
             else:
                 x.append([self.xmin[0], self.xmax[1] - l + l3])
         return np.vstack(x)
+
 
     def _boundary_constraint_factor_inside(
         self,

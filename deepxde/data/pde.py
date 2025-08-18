@@ -79,6 +79,7 @@ class PDE(Data):
         bcs,
         num_domain=0,
         num_boundary=0,
+        multiplier_boundary=1,
         train_distribution="Hammersley",
         test_distribution="uniform",
         anchors=None,
@@ -100,6 +101,7 @@ class PDE(Data):
             np.random.seed(seed)
         self.num_domain = num_domain
         self.num_boundary = num_boundary
+        self.multiplier_boundary=multiplier_boundary
         if train_distribution not in [
             "uniform",
             "pseudo",
@@ -158,7 +160,8 @@ class PDE(Data):
         self.train_x_all = None
         self.train_x_bc = None
         self.test_x_bc = None
-        self.num_bcs = None
+        self.num_bcs_train = None
+        self.num_bcs_test = None
         self.save_points=save_points
         self.save_points_file = save_points_file
         
@@ -206,7 +209,12 @@ class PDE(Data):
                     len(f) + len(self.bcs), len(loss_fn)
                 )
             )
-
+        if training:
+            self.num_bcs = self.num_bcs_train
+        else:
+            self.num_bcs = self.num_bcs_test         
+       
+        
         bcs_start = np.cumsum([0] + self.num_bcs)
         bcs_start = list(map(int, bcs_start))
         error_f = [fi[bcs_start[-1] :] for fi in f]
@@ -357,12 +365,13 @@ class PDE(Data):
             if self.train_distribution == "uniform":
                 tmp = self.geom.uniform_boundary_points(self.num_boundary)
             else:
+                
                 tmp = self.geom.random_boundary_points(
-                    self.num_boundary, random=self.train_distribution
+                    self.num_boundary*self.multiplier_boundary, random=self.train_distribution
                 )
             tmp = np.vstack((self.train_x_all,tmp))
-        x_bcs = [bc.collocation_points(tmp) for bc in self.bcs]
-        self.num_bcs = list(map(len, x_bcs))
+        x_bcs = [bc.collocation_points(tmp, self.anchors_bc) for bc in self.bcs]
+        self.num_bcs_train = list(map(len, x_bcs))
         self.train_x_bc = (
             np.vstack(x_bcs)
             if x_bcs
@@ -375,7 +384,7 @@ class PDE(Data):
         if self.test_distribution == "uniform":
             x = self.geom.uniform_points(self.num_test, boundary=False)
         else:
-            x = self.geom.random_points(self.num_test, random=self.test_distribution, seed=self.seed)
+            x = self.geom.random_points(self.num_test, random=self.test_distribution)
 
         tmp = np.empty((0, self.geom.dim), dtype=config.real(np))
         if self.num_boundary > 0:
@@ -393,6 +402,7 @@ class PDE(Data):
             tmp = np.array(list(filter(is_not_excluded, tmp)))
 
         tmp = self.test_bc_points(tmp)
+        
         return np.vstack((tmp,x))
     
     @run_if_all_none("test_x_bc")
@@ -404,6 +414,7 @@ class PDE(Data):
             if x_bcs
             else np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
         )
+        self.num_bcs_test = list(map(len, x_bcs))
         return self.test_x_bc
 
 class TimePDE(PDE):
@@ -421,6 +432,7 @@ class TimePDE(PDE):
         ic_bcs=[],
         num_domain=0,
         num_boundary=0,
+        multiplier_boundary=1,
         num_initial=0,
         train_distribution="Hammersley",
         test_distribution = "uniform",
@@ -441,6 +453,7 @@ class TimePDE(PDE):
             ic_bcs,
             num_domain,
             num_boundary,
+            multiplier_boundary,
             train_distribution=train_distribution,
             test_distribution=test_distribution,
             anchors=anchors,
@@ -480,15 +493,15 @@ class TimePDE(PDE):
         if self.test_distribution == "uniform":
             x = self.geom.uniform_points(self.num_test, boundary=False)
         else:
-            x = self.geom.random_points(self.num_test, random=self.test_distribution, seed=self.seed)
+            x = self.geom.random_points(self.num_test, random=self.test_distribution)
         if self.num_initial > 0:
             if self.test_distribution == "uniform":
                 tmp = self.geom.uniform_initial_points(self.num_initial)
             else:
                 tmp = self.geom.random_initial_points(
-                    self.num_initial, random=self.train_distribution, seed=self.seed
+                    self.num_initial, random=self.test_distribution
                 )
-            tmp = np.vstack((tmp,x))
+    
         else:
             tmp = np.empty([0, self.train_x_all.shape[-1]], dtype=config.real(np))
         if self.num_boundary > 0:
@@ -496,10 +509,10 @@ class TimePDE(PDE):
                 tmp_2 = self.geom.uniform_boundary_points(self.num_boundary)
             else:
                 tmp_2 = self.geom.random_boundary_points(
-                    self.num_boundary, random=self.train_distribution, seed=self.seed
+                    self.num_boundary, random=self.test_distribution
                 )
             tmp = np.vstack((tmp_2,tmp))
-        tmp = self.test_bc_points(tmp)
+        
         if self.exclusions is not None:
 
             def is_not_excluded(x):
@@ -507,7 +520,7 @@ class TimePDE(PDE):
 
             tmp = np.array(list(filter(is_not_excluded, tmp)))
             x = np.array(list(filter(is_not_excluded, x)))
-        
+        tmp = self.test_bc_points(tmp)
         return np.float32(np.vstack((tmp,x)))
     
     

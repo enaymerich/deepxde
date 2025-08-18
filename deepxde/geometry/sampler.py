@@ -29,8 +29,8 @@ def pseudorandom(n_samples, dimension):
     # number, which may not be what we expect.
     #rng = np.random.default_rng(seed)
     rng = np.random.default_rng(config.random_seed)
-    #return rng.random(size=(n_samples, dimension), dtype=config.real(np))
-    return np.random.random(size=(n_samples, dimension)).astype(config.real(np))
+    return rng.random(size=(n_samples, dimension), dtype=config.real(np))
+    #return np.random.random(size=(n_samples, dimension)).astype(config.real(np))
 
 
 def quasirandom(n_samples, dimension, sampler):
