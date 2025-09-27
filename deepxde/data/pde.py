@@ -234,7 +234,7 @@ class PDE(Data):
     @run_if_all_none("train_x", "train_y", "train_aux_vars")
     def train_next_batch(self, batch_size=None):
         self.train_x_all = self.train_points()
-        X = self.train_x_all[-self.num_domain:]
+        X = self.train_x_all#[-self.num_domain:]
         self.bc_points()  # Generate self.num_bcs and self.train_x_bc
         X_bound = self.train_x_bc
         if self.bcs and config.hvd is not None:
@@ -294,6 +294,7 @@ class PDE(Data):
         """Resample the training points for PDE and/or BC."""
         if config.random_seed is not None:
             config.set_random_seed(config.random_seed+1)
+            self.seed = config.random_seed
         if pde_points:
             self.train_x_all = None
         if bc_points:
@@ -369,6 +370,12 @@ class PDE(Data):
                 tmp = self.geom.random_boundary_points(
                     self.num_boundary*self.multiplier_boundary, random=self.train_distribution
                 )
+            if self.exclusions is not None:
+
+                def is_not_excluded(x):
+                    return not np.any([np.allclose(x, y) for y in self.exclusions])
+                tmp = np.array(list(filter(is_not_excluded, tmp)))
+                
             tmp = np.vstack((self.train_x_all,tmp))
         x_bcs = [bc.collocation_points(tmp, self.anchors_bc) for bc in self.bcs]
         self.num_bcs_train = list(map(len, x_bcs))
