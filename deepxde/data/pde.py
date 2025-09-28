@@ -370,14 +370,33 @@ class PDE(Data):
                 tmp = self.geom.random_boundary_points(
                     self.num_boundary*self.multiplier_boundary, random=self.train_distribution
                 )
-            if self.exclusions is not None:
-
-                def is_not_excluded(x):
-                    return not np.any([np.allclose(x, y) for y in self.exclusions])
-                tmp = np.array(list(filter(is_not_excluded, tmp)))
                 
             tmp = np.vstack((self.train_x_all,tmp))
         x_bcs = [bc.collocation_points(tmp, self.anchors_bc) for bc in self.bcs]
+        #if self.exclusions is not None:
+
+        def exclude_edges(x):
+            # Relative tolerance (fraction of data range)
+            rel_tol = 0.05  # 5% of the range
+            
+            # Compute min, max, and range per column
+            mins = x.min(axis=0)
+            maxs = x.max(axis=0)
+            ranges = maxs - mins
+            # Absolute tolerance per column
+            tols = rel_tol * ranges
+            # Boolean mask: coordinate is close to min or max
+            is_edge_coord = ((np.abs(x - mins) <= tols) |
+                             (np.abs(x - maxs) <= tols))
+            
+            # Count edge-like coordinates per row
+            edge_counts = is_edge_coord.sum(axis=1)
+            inner_points = x[edge_counts == 1]
+            
+            return inner_points#not np.any([np.allclose(x, y) for y in self.exclusions])
+        x_bcs = [exclude_edges(x) for x in x_bcs]
+        
+        
         self.num_bcs_train = list(map(len, x_bcs))
         self.train_x_bc = (
             np.vstack(x_bcs)

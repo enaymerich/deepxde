@@ -49,6 +49,7 @@ class Hypercube(Geometry):
                 f"Warning: {self.__class__.__name__} boundary_normal called on vertices. "
                 "You may use PDE(..., exclusions=...) to exclude the vertices."
             )
+            print(x[idx])
             l = np.linalg.norm(_n[idx], axis=-1, keepdims=True)
             _n[idx] /= l
         return _n
